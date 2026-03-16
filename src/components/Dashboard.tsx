@@ -165,20 +165,50 @@ export function Dashboard({
       </header>
       </div>
 
-      <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-8 relative">
-        {filteredAssets.length === 0 ? (
-          <div className="text-center py-20 text-neutral-500">
-            没有找到相关资产，您可以手动添加或批量上传。
-          </div>
-        ) : (
-          <div className="flex flex-col gap-8">
-            {filteredAssets.map(asset => (
-              <div key={asset.id} id={`asset-${asset.id}`}>
-                <AssetCard asset={asset} onUpdate={updateAsset} onDelete={() => deleteAsset(asset.id)} />
-              </div>
-            ))}
-          </div>
+      <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-8 flex gap-8 relative items-start">
+        {/* Sidebar Navigation */}
+        {filteredAssets.length > 0 && (
+          <aside className="w-48 shrink-0 sticky top-40 max-h-[calc(100vh-12rem)] overflow-y-auto hidden md:block rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+            <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-3">
+              资产目录 ({filteredAssets.length})
+            </h3>
+            <div className="flex flex-col gap-1">
+              {filteredAssets.map(asset => (
+                <button
+                  key={asset.id}
+                  onClick={() => {
+                    const el = document.getElementById(`asset-${asset.id}`);
+                    if (el) {
+                      const y = el.getBoundingClientRect().top + window.scrollY - 160;
+                      window.scrollTo({ top: y, behavior: 'smooth' });
+                    }
+                  }}
+                  className="text-left text-sm px-3 py-2 rounded-lg hover:bg-neutral-100 text-neutral-700 hover:text-black truncate transition-colors font-medium"
+                  title={asset.name}
+                >
+                  {asset.name}
+                </button>
+              ))}
+            </div>
+          </aside>
         )}
+
+        {/* Main Content */}
+        <div className="flex-1 min-w-0">
+          {filteredAssets.length === 0 ? (
+            <div className="text-center py-20 text-neutral-500">
+              没有找到相关资产，您可以手动添加或批量上传。
+            </div>
+          ) : (
+            <div className="flex flex-col gap-8">
+              {filteredAssets.map(asset => (
+                <div key={asset.id} id={`asset-${asset.id}`} className="scroll-mt-40">
+                  <AssetCard asset={asset} onUpdate={updateAsset} onDelete={() => deleteAsset(asset.id)} />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         <div className="fixed bottom-8 right-8 flex flex-col gap-4 z-20">
           <div className="relative group">

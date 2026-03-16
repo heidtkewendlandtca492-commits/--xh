@@ -1,10 +1,11 @@
 import { useState, useRef, FC } from 'react';
-import { Asset, Candidate } from '../types';
-import { Upload, Download, Trash2, X, Image as ImageIcon, Music, Loader2 } from 'lucide-react';
+import { Asset, Candidate, CommunicationMessage } from '../types';
+import { Upload, Download, Trash2, X, Image as ImageIcon, Music, Loader2, Send } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { Dropzone } from './Dropzone';
 import { EditableField } from './EditableField';
 import { uploadFile } from '../lib/storage';
+import { ConfirmModal } from './ConfirmModal';
 
 interface AssetCardProps {
   asset: Asset;
@@ -19,8 +20,55 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
   const actorInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [confirmDialog, setConfirmDialog] = useState<{title: string, message: string, action: () => void} | null>(null);
+  const [commInput, setCommInput] = useState('');
 
   const finalizedCandidate = asset.candidates.find(c => c.id === asset.finalizedId);
+
+  const COMM_COLORS = [
+    'text-blue-600',
+    'text-emerald-600',
+    'text-violet-600',
+    'text-amber-600',
+    'text-rose-600',
+    'text-cyan-600'
+  ];
+
+  const handleAddCommunication = () => {
+    if (!commInput.trim()) return;
+    const currentComms = asset.communications || [];
+    const lastColor = currentComms.length > 0 ? currentComms[currentComms.length - 1].colorClass : '';
+    
+    let nextColorIndex = currentComms.length % COMM_COLORS.length;
+    if (COMM_COLORS[nextColorIndex] === lastColor) {
+       nextColorIndex = (nextColorIndex + 1) % COMM_COLORS.length;
+    }
+
+    const newMsg: CommunicationMessage = {
+      id: uuidv4(),
+      text: commInput.trim(),
+      colorClass: COMM_COLORS[nextColorIndex],
+      isStrikethrough: false
+    };
+
+    onUpdate({
+      ...asset,
+      communications: [...currentComms, newMsg]
+    });
+    setCommInput('');
+  };
+
+  const toggleStrikethrough = (msgId: string) => {
+    const currentComms = asset.communications || [];
+    const newComms = currentComms.map(msg => 
+      msg.id === msgId ? { ...msg, isStrikethrough: !msg.isStrikethrough } : msg
+    );
+    onUpdate({ ...asset, communications: newComms });
+  };
+
+  const confirmDelete = (title: string, message: string, action: () => void) => {
+    setConfirmDialog({ title, message, action });
+  };
 
   const handleFileUpload = async (files: FileList | null) => {
     if (!files) return;
@@ -207,7 +255,7 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm overflow-hidden flex flex-col lg:flex-row mb-6 relative">
+    <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm overflow-hidden flex flex-col mb-6 relative">
       {isUploading && (
         <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-30 flex items-center justify-center">
           <div className="flex flex-col items-center gap-3 w-64">
@@ -222,13 +270,15 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
           </div>
         </div>
       )}
-      {/* Left: Text Info */}
-      <div className="w-full lg:w-[300px] xl:w-[350px] shrink-0 p-6 border-b lg:border-b-0 lg:border-r border-neutral-200 flex flex-col gap-6">
+      
+      <div className="flex flex-col lg:flex-row w-full">
+        {/* Left: Text Info */}
+        <div className="w-full lg:w-[300px] xl:w-[350px] shrink-0 p-6 border-b lg:border-b-0 lg:border-r border-neutral-200 flex flex-col gap-6">
         <div className="flex justify-between items-start">
           <div className="flex-1">
             <EditableField label="资产名称" value={asset.name} onSave={(v) => onUpdate({...asset, name: v})} />
           </div>
-          <button onClick={onDelete} className="text-neutral-400 hover:text-red-500 ml-4 p-2 bg-neutral-50 rounded-full hover:bg-red-50 transition-colors">
+          <button onClick={() => confirmDelete('删除资产', `确定要删除资产 "${asset.name}" 吗？所有相关素材将一并删除，此操作不可恢复。`, onDelete)} className="text-neutral-400 hover:text-red-500 ml-4 p-2 bg-neutral-50 rounded-full hover:bg-red-50 transition-colors">
             <Trash2 className="w-4 h-4" />
           </button>
         </div>
@@ -279,7 +329,7 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
                       <Download className="w-4 h-4" />
                     </button>
                     <button 
-                      onClick={deleteAudio}
+                      onClick={() => confirmDelete('删除音频', '确定要删除这个音频文件吗？', deleteAudio)}
                       className="text-neutral-500 hover:text-red-600 p-1"
                       title="删除音频"
                     >
@@ -334,7 +384,7 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
                           <Download className="w-3 h-3" />
                         </button>
                         <button 
-                          onClick={() => deleteReference(img.id)}
+                          onClick={() => confirmDelete('删除参考图', '确定要删除这张参考图吗？', () => deleteReference(img.id))}
                           className="bg-white text-red-600 p-1 rounded flex-1 flex justify-center hover:bg-red-50"
                           title="删除"
                         >
@@ -422,7 +472,7 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
                           <Download className="w-3 h-3" />
                         </button>
                         <button 
-                          onClick={() => deleteActorCandidate(candidate.id)}
+                          onClick={() => confirmDelete('删除素材', '确定要删除这个素材吗？', () => deleteActorCandidate(candidate.id))}
                           className="bg-white text-red-600 p-1 rounded flex-1 flex justify-center hover:bg-red-50"
                           title="删除"
                         >
@@ -485,7 +535,7 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
                         <Download className="w-3 h-3" />
                       </button>
                       <button 
-                        onClick={() => deleteCandidate(candidate.id)}
+                        onClick={() => confirmDelete('删除素材', '确定要删除这个素材吗？', () => deleteCandidate(candidate.id))}
                         className="bg-white text-red-600 p-1 rounded flex-1 flex justify-center hover:bg-red-50"
                         title="删除"
                       >
@@ -504,6 +554,59 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
           </div>
         </div>
       </div>
+      </div>
+
+      {/* Communication Area */}
+      <div className="border-t border-neutral-200 p-6 bg-neutral-50/30">
+        <h4 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-4">沟通区域 (Communication)</h4>
+        
+        <div className="flex flex-col gap-2 mb-4">
+          {(asset.communications || []).map((msg, idx) => (
+            <div key={msg.id} className="flex items-start gap-2 group">
+              <span className={`text-sm font-medium ${msg.colorClass} ${msg.isStrikethrough ? 'line-through opacity-50' : ''}`}>
+                {idx + 1}. {msg.text}
+              </span>
+              <button 
+                onClick={() => toggleStrikethrough(msg.id)}
+                className="opacity-0 group-hover:opacity-100 text-neutral-400 hover:text-red-500 transition-opacity p-0.5"
+                title={msg.isStrikethrough ? "取消删除线" : "添加删除线"}
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+          {(!asset.communications || asset.communications.length === 0) && (
+            <div className="text-sm text-neutral-400 italic">暂无沟通记录</div>
+          )}
+        </div>
+
+        <div className="flex gap-2">
+          <input 
+            type="text"
+            value={commInput}
+            onChange={(e) => setCommInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleAddCommunication()}
+            placeholder="输入沟通内容..."
+            className="flex-1 px-4 py-2 text-sm border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-black"
+          />
+          <button 
+            onClick={handleAddCommunication}
+            disabled={!commInput.trim()}
+            className="px-5 py-2 bg-black text-white text-sm font-medium rounded-xl hover:bg-neutral-800 disabled:opacity-50 transition-colors flex items-center gap-2"
+          >
+            <Send className="w-4 h-4" /> 提交
+          </button>
+        </div>
+      </div>
+
+      {confirmDialog && (
+        <ConfirmModal
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          onConfirm={confirmDialog.action}
+          onCancel={() => setConfirmDialog(null)}
+        />
+      )}
     </div>
   );
 }

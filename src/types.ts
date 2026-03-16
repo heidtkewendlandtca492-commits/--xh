@@ -7,6 +7,13 @@ export interface Candidate {
   originalUrl?: string; // URL of the uncompressed original image
 }
 
+export interface CommunicationMessage {
+  id: string;
+  text: string;
+  colorClass: string;
+  isStrikethrough: boolean;
+}
+
 export interface Asset {
   id: string;
   type: AssetType;
@@ -20,6 +27,7 @@ export interface Asset {
   referenceImages?: Candidate[]; // New field for multiple images
   audioReference?: Candidate;
   actorCandidates?: Candidate[];
+  communications?: CommunicationMessage[];
 }
 
 export interface Project {
