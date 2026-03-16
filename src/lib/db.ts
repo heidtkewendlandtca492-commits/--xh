@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Project } from '../types';
 
@@ -31,5 +31,5 @@ export function subscribeToProject(callback: (project: Project | null) => void) 
 
 export async function clearProject() {
   const docRef = doc(db, 'projects', PROJECT_ID);
-  await setDoc(docRef, { id: PROJECT_ID, scriptText: '', assets: [] });
+  await deleteDoc(docRef);
 }
