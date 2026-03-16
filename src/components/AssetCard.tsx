@@ -25,7 +25,7 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
   const [uploadProgress, setUploadProgress] = useState(0);
   const [confirmDialog, setConfirmDialog] = useState<{title: string, message: string, action: () => void} | null>(null);
   const [commInput, setCommInput] = useState('');
-  const [previewImage, setPreviewImage] = useState<{url: string, name: string} | null>(null);
+  const [previewImage, setPreviewImage] = useState<{url: string, originalUrl?: string, name: string} | null>(null);
 
   const finalizedCandidate = asset.candidates.find(c => c.id === asset.finalizedId);
 
@@ -418,7 +418,7 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
               />
             </div>
             
-            <Dropzone onDropFiles={handleRefUpload} className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-2 bg-white border border-neutral-200 rounded-xl min-h-[100px]">
+            <Dropzone onDropFiles={handleRefUpload} className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-white border border-neutral-200 rounded-xl min-h-[100px]">
               {(() => {
                 const refImages = asset.referenceImages || (asset.referenceImage ? [asset.referenceImage] : []);
                 return refImages.map(img => (
@@ -426,7 +426,7 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
                     <ImageLoader src={img.url} alt={img.name} />
                     <div 
                       className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-1 z-20 cursor-pointer"
-                      onClick={() => setPreviewImage({url: img.url, name: img.name})}
+                      onClick={() => setPreviewImage({url: img.url, originalUrl: img.originalUrl, name: img.name})}
                     >
                       <div className="flex gap-1 w-full mt-auto">
                         <button 
@@ -465,7 +465,7 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
                   <ImageLoader src={finalizedCandidate.url} alt={finalizedCandidate.name} />
                   <div 
                     className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 z-20 cursor-pointer"
-                    onClick={() => setPreviewImage({url: finalizedCandidate.url, name: finalizedCandidate.name})}
+                    onClick={() => setPreviewImage({url: finalizedCandidate.url, originalUrl: finalizedCandidate.originalUrl, name: finalizedCandidate.name})}
                   >
                     <button 
                       onClick={(e) => { e.stopPropagation(); downloadFileFromUrl(finalizedCandidate.originalUrl || finalizedCandidate.url, finalizedCandidate.name); }}
@@ -492,7 +492,7 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
           </div>
         </div>
 
-        <div className={asset.type === 'character' ? "grid grid-cols-1 xl:grid-cols-2 gap-6" : ""}>
+        <div className="flex flex-col gap-6">
           {/* State Finalized Area (Characters only) */}
           {asset.type === 'character' && (
             <div className="col-span-full">
@@ -514,14 +514,14 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
                 />
               </div>
               
-              <Dropzone onDropFiles={handleStateFinalizedUpload} className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-4 p-4 bg-white border border-neutral-200 rounded-xl min-h-[150px] mb-6">
+              <Dropzone onDropFiles={handleStateFinalizedUpload} className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4 p-4 bg-white border border-neutral-200 rounded-xl min-h-[150px] mb-6">
                 {(asset.stateFinalizedAssets || []).map(stateAsset => (
                   <div key={stateAsset.id} className="flex flex-col gap-2">
                     <div className="relative group rounded-lg overflow-hidden border border-neutral-200 aspect-square">
                       <ImageLoader src={stateAsset.url} alt={stateAsset.name} />
                       <div 
                         className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-1 z-20 cursor-pointer"
-                        onClick={() => setPreviewImage({url: stateAsset.url, name: stateAsset.name})}
+                        onClick={() => setPreviewImage({url: stateAsset.url, originalUrl: stateAsset.originalUrl, name: stateAsset.name})}
                       >
                         <div className="flex gap-1 w-full mt-auto">
                           <button 
@@ -582,13 +582,13 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
                 />
               </div>
               
-              <Dropzone onDropFiles={handleActorUpload} className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2 p-2 bg-white border border-neutral-200 rounded-xl min-h-[100px] mb-6 xl:mb-0">
+              <Dropzone onDropFiles={handleActorUpload} className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4 p-4 bg-white border border-neutral-200 rounded-xl min-h-[100px]">
                 {(asset.actorCandidates || []).map(candidate => (
                   <div key={candidate.id} className="relative group rounded-lg overflow-hidden border border-neutral-200 aspect-square">
                     <ImageLoader src={candidate.url} alt={candidate.name} />
                     <div 
                       className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-1 z-20 cursor-pointer"
-                      onClick={() => setPreviewImage({url: candidate.url, name: candidate.name})}
+                      onClick={() => setPreviewImage({url: candidate.url, originalUrl: candidate.originalUrl, name: candidate.name})}
                     >
                       <div className="flex gap-1 w-full mt-auto">
                         <button 
@@ -640,13 +640,13 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
               />
             </div>
             
-            <Dropzone onDropFiles={handleFileUpload} className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2 p-2 bg-white border border-neutral-200 rounded-xl min-h-[100px]">
+            <Dropzone onDropFiles={handleFileUpload} className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4 p-4 bg-white border border-neutral-200 rounded-xl min-h-[100px]">
               {asset.candidates.map(candidate => (
                 <div key={candidate.id} className={`relative group rounded-lg overflow-hidden border aspect-square ${asset.finalizedId === candidate.id ? 'border-black ring-2 ring-black ring-offset-1' : 'border-neutral-200'}`}>
                   <ImageLoader src={candidate.url} alt={candidate.name} />
                   <div 
                     className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-1 z-20 cursor-pointer"
-                    onClick={() => setPreviewImage({url: candidate.url, name: candidate.name})}
+                    onClick={() => setPreviewImage({url: candidate.url, originalUrl: candidate.originalUrl, name: candidate.name})}
                   >
                     {asset.finalizedId !== candidate.id && (
                       <button 
@@ -741,6 +741,7 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
       {previewImage && (
         <ImagePreviewModal
           src={previewImage.url}
+          originalUrl={previewImage.originalUrl}
           alt={previewImage.name}
           onClose={() => setPreviewImage(null)}
         />

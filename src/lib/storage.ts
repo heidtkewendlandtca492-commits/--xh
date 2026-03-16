@@ -51,10 +51,10 @@ export async function uploadFile(file: File, path: string, onProgress?: (progres
           
           // If it's an image, create a compressed URL for preview
           if (response.resource_type === 'image') {
-            // Insert transformation parameters: q_auto:low (quality), f_auto (format), w_800 (width limit)
+            // Insert transformation parameters: q_auto:good (quality), f_auto (format), w_1080 (width limit)
             const parts = originalUrl.split('/upload/');
             if (parts.length === 2) {
-              url = `${parts[0]}/upload/q_auto:low,f_auto,w_800/${parts[1]}`;
+              url = `${parts[0]}/upload/q_auto:good,f_auto,w_1080/${parts[1]}`;
             }
           }
           

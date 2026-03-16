@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Project, AssetType, Asset } from '../types';
 import { AssetCard } from './AssetCard';
-import { Plus, Trash2, Upload as UploadIcon, Search, Settings, Sparkles, Edit2, Check, X } from 'lucide-react';
+import { Plus, Trash2, Upload as UploadIcon, Search, Settings, Sparkles, Edit2, Check, X, ArrowUp } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { AddAssetModal } from './AddAssetModal';
 import { parseFileOrText } from '../lib/parser';
@@ -219,7 +219,7 @@ export function Dashboard({
           )}
         </div>
 
-        <div className="fixed bottom-8 right-8 flex flex-col gap-4 z-20">
+        <div className="fixed bottom-8 right-8 flex flex-col items-end gap-4 z-20">
           <div className="relative group">
             <button
               onClick={() => setIsAnalyzeModalOpen(true)}
@@ -245,16 +245,30 @@ export function Dashboard({
             </span>
           </div>
 
-          <div className="relative group">
-            <button
-              onClick={() => setIsAddModalOpen(true)}
-              className="w-14 h-14 bg-black text-white rounded-full shadow-lg flex items-center justify-center hover:bg-neutral-800 transition-transform hover:scale-105"
-            >
-              <Plus className="w-6 h-6" />
-            </button>
-            <span className="absolute right-full mr-4 top-1/2 -translate-y-1/2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-              手动添加
-            </span>
+          <div className="flex gap-4">
+            <div className="relative group">
+              <button
+                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                className="w-14 h-14 bg-white text-black border border-neutral-200 rounded-full shadow-lg flex items-center justify-center hover:bg-neutral-50 transition-transform hover:scale-105"
+              >
+                <ArrowUp className="w-6 h-6" />
+              </button>
+              <span className="absolute right-full mr-4 top-1/2 -translate-y-1/2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                返回顶部
+              </span>
+            </div>
+
+            <div className="relative group">
+              <button
+                onClick={() => setIsAddModalOpen(true)}
+                className="w-14 h-14 bg-black text-white rounded-full shadow-lg flex items-center justify-center hover:bg-neutral-800 transition-transform hover:scale-105"
+              >
+                <Plus className="w-6 h-6" />
+              </button>
+              <span className="absolute top-full mt-4 left-1/2 -translate-x-1/2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                手动添加
+              </span>
+            </div>
           </div>
         </div>
       </main>

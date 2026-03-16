@@ -6,7 +6,10 @@ const PROJECT_ID = 'default-project';
 
 export async function saveProject(project: Project) {
   const docRef = doc(db, 'projects', PROJECT_ID);
-  await setDoc(docRef, project);
+  // Firestore does not support 'undefined' values. 
+  // We use JSON parse/stringify to cleanly strip all undefined properties from the object tree before saving.
+  const cleanProject = JSON.parse(JSON.stringify(project));
+  await setDoc(docRef, cleanProject);
 }
 
 export async function loadProject(): Promise<Project | null> {
