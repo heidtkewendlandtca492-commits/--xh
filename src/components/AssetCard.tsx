@@ -294,25 +294,6 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
   };
 
   const downloadFileFromUrl = async (url: string, name: string) => {
-    // If it's a Cloudinary URL, we can use fl_attachment to force download instantly without fetching into memory
-    if (url.includes('cloudinary.com') && url.includes('/upload/')) {
-      const parts = url.split('/upload/');
-      if (parts.length === 2) {
-        // Remove extension for the attachment name
-        const safeName = encodeURIComponent(name.replace(/\.[^/.]+$/, "")); 
-        const downloadUrl = `${parts[0]}/upload/fl_attachment:${safeName}/${parts[1]}`;
-        
-        const a = document.createElement('a');
-        a.href = downloadUrl;
-        a.download = name;
-        a.target = '_blank';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        return;
-      }
-    }
-
     try {
       const response = await fetch(url);
       if (!response.ok) throw new Error('Network response was not ok');
@@ -327,8 +308,14 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
       URL.revokeObjectURL(blobUrl);
     } catch (e) {
       console.error('Download failed:', e);
-      alert('下载失败，可能是跨域限制或网络问题。正在尝试在新标签页打开...');
-      window.open(url, '_blank');
+      // Fallback
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      a.target = '_blank';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
     }
   };
 
@@ -422,7 +409,7 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
           </div>
         )}
 
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] gap-6">
           {/* Reference Image */}
           <div>
             <div className="flex items-center justify-between mb-3">
@@ -443,7 +430,7 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
               />
             </div>
             
-            <Dropzone onDropFiles={handleRefUpload} className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-white border border-neutral-200 rounded-xl min-h-[100px]">
+            <Dropzone onDropFiles={handleRefUpload} className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3 p-3 bg-white border border-neutral-200 rounded-xl min-h-[100px]">
               {renderUploadTasks(activeUploads.reference)}
               {(() => {
                 const refImages = asset.referenceImages || (asset.referenceImage ? [asset.referenceImage] : []);
@@ -540,7 +527,7 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
                 />
               </div>
               
-              <Dropzone onDropFiles={handleStateFinalizedUpload} className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4 p-4 bg-white border border-neutral-200 rounded-xl min-h-[150px] mb-6">
+              <Dropzone onDropFiles={handleStateFinalizedUpload} className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-4 p-4 bg-white border border-neutral-200 rounded-xl min-h-[150px] mb-6">
                 {renderUploadTasks(activeUploads.stateFinalized)}
                 {(asset.stateFinalizedAssets || []).map(stateAsset => (
                   <div key={stateAsset.id} className="flex flex-col gap-2">
@@ -609,7 +596,7 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
                 />
               </div>
               
-              <Dropzone onDropFiles={handleActorUpload} className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4 p-4 bg-white border border-neutral-200 rounded-xl min-h-[100px]">
+              <Dropzone onDropFiles={handleActorUpload} className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-4 p-4 bg-white border border-neutral-200 rounded-xl min-h-[100px]">
                 {renderUploadTasks(activeUploads.actorCandidates)}
                 {(asset.actorCandidates || []).map(candidate => (
                   <div key={candidate.id} className="relative group rounded-lg overflow-hidden border border-neutral-200 aspect-square">
@@ -668,7 +655,7 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
               />
             </div>
             
-            <Dropzone onDropFiles={handleFileUpload} className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4 p-4 bg-white border border-neutral-200 rounded-xl min-h-[100px]">
+            <Dropzone onDropFiles={handleFileUpload} className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-4 p-4 bg-white border border-neutral-200 rounded-xl min-h-[100px]">
               {renderUploadTasks(activeUploads.candidates)}
               {asset.candidates.map(candidate => (
                 <div key={candidate.id} className={`relative group rounded-lg overflow-hidden border aspect-square ${asset.finalizedId === candidate.id ? 'border-black ring-2 ring-black ring-offset-1' : 'border-neutral-200'}`}>

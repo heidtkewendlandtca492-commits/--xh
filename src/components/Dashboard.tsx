@@ -98,7 +98,7 @@ export function Dashboard({
     <div className="min-h-screen flex flex-col">
       <div className="sticky top-0 z-20 flex flex-col shadow-sm">
         <div className="bg-amber-50 border-b border-amber-200 px-6 py-3">
-          <div className="max-w-7xl mx-auto flex items-start justify-between gap-4">
+          <div className="w-full px-6 flex items-start justify-between gap-4">
             <div className="flex-1">
               <h3 className="text-xl font-bold text-amber-800 mb-1">项目公告</h3>
               {isEditingAnnouncement ? (
@@ -134,7 +134,7 @@ export function Dashboard({
         </div>
 
         <header className="bg-white border-b border-neutral-200">
-          <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+          <div className="w-full px-6 h-16 flex items-center justify-between">
             <div className="flex items-center gap-6">
               <h1 className="text-xl font-bold">资产管理面板</h1>
               <div className="relative">
@@ -158,7 +158,7 @@ export function Dashboard({
             </button>
           </div>
         </div>
-        <div className="max-w-7xl mx-auto px-6 flex gap-8">
+        <div className="w-full px-6 flex gap-8">
           {(['character', 'scene', 'prop'] as const).map(tab => (
             <button
               key={tab}
@@ -174,7 +174,7 @@ export function Dashboard({
       </header>
       </div>
 
-      <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-8 flex gap-8 relative items-start">
+      <main className="flex-1 w-full px-6 py-8 flex gap-8 relative items-start">
         {/* Sidebar Navigation */}
         {filteredAssets.length > 0 && (
           <aside className="w-48 shrink-0 sticky top-40 max-h-[calc(100vh-12rem)] overflow-y-auto hidden md:block rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
