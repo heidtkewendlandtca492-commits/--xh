@@ -4,11 +4,26 @@ import { Project } from '../types';
 
 const PROJECT_ID = 'default-project';
 
+// Helper function to recursively remove undefined values from an object or array
+function removeUndefined(obj: any): any {
+  if (Array.isArray(obj)) {
+    return obj.map(removeUndefined);
+  } else if (obj !== null && typeof obj === 'object') {
+    return Object.keys(obj).reduce((acc, key) => {
+      if (obj[key] !== undefined) {
+        acc[key] = removeUndefined(obj[key]);
+      }
+      return acc;
+    }, {} as any);
+  }
+  return obj;
+}
+
 export async function saveProject(project: Project) {
   const docRef = doc(db, 'projects', PROJECT_ID);
   // Firestore does not support 'undefined' values. 
-  // We use JSON parse/stringify to cleanly strip all undefined properties from the object tree before saving.
-  const cleanProject = JSON.parse(JSON.stringify(project));
+  // We use a recursive function to cleanly strip all undefined properties from the object tree before saving.
+  const cleanProject = removeUndefined(project);
   await setDoc(docRef, cleanProject);
 }
 
