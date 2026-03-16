@@ -87,7 +87,7 @@ export function Dashboard({
 
   return (
     <div className="min-h-screen flex flex-col">
-      {(project.announcement || isEditingAnnouncement) && (
+      <div className="sticky top-0 z-20 flex flex-col shadow-sm">
         <div className="bg-amber-50 border-b border-amber-200 px-6 py-3">
           <div className="max-w-7xl mx-auto flex items-start justify-between gap-4">
             <div className="flex-1">
@@ -100,7 +100,9 @@ export function Dashboard({
                   placeholder="输入项目公告..."
                 />
               ) : (
-                <p className="text-sm text-amber-900 whitespace-pre-wrap">{project.announcement}</p>
+                <p className="text-sm text-amber-900 whitespace-pre-wrap">
+                  {project.announcement || <span className="text-amber-700/50 italic">暂无公告，点击右侧编辑图标添加</span>}
+                </p>
               )}
             </div>
             <div className="flex-shrink-0">
@@ -121,13 +123,12 @@ export function Dashboard({
             </div>
           </div>
         </div>
-      )}
 
-      <header className="bg-white border-b border-neutral-200 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <h1 className="text-xl font-bold">资产管理面板</h1>
-            <div className="relative">
+        <header className="bg-white border-b border-neutral-200">
+          <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+            <div className="flex items-center gap-6">
+              <h1 className="text-xl font-bold">资产管理面板</h1>
+              <div className="relative">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
               <input 
                 type="text" 
@@ -162,6 +163,7 @@ export function Dashboard({
           ))}
         </div>
       </header>
+      </div>
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-8 relative">
         {filteredAssets.length === 0 ? (
@@ -227,7 +229,11 @@ export function Dashboard({
       )}
 
       {isSettingsOpen && (
-        <SettingsModal onClose={() => setIsSettingsOpen(false)} />
+        <SettingsModal 
+          project={project}
+          onUpdate={onUpdate}
+          onClose={() => setIsSettingsOpen(false)} 
+        />
       )}
 
       {isAnalyzeModalOpen && (

@@ -17,29 +17,41 @@ export async function uploadFile(file: File, path: string, onProgress?: (progres
 
     xhr.onload = () => {
       if (xhr.status === 200) {
-        const response = JSON.parse(xhr.responseText);
-        const originalUrl = response.secure_url;
-        let url = originalUrl;
-        
-        // If it's an image, create a compressed URL for preview
-        if (response.resource_type === 'image') {
-          // Insert transformation parameters: q_auto:low (quality), f_auto (format), w_800 (width limit)
-          const parts = originalUrl.split('/upload/');
-          if (parts.length === 2) {
-            url = `${parts[0]}/upload/q_auto:low,f_auto,w_800/${parts[1]}`;
+        try {
+          const response = JSON.parse(xhr.responseText);
+          const originalUrl = response.secure_url;
+          let url = originalUrl;
+          
+          // If it's an image, create a compressed URL for preview
+          if (response.resource_type === 'image') {
+            // Insert transformation parameters: q_auto:low (quality), f_auto (format), w_800 (width limit)
+            const parts = originalUrl.split('/upload/');
+            if (parts.length === 2) {
+              url = `${parts[0]}/upload/q_auto:low,f_auto,w_800/${parts[1]}`;
+            }
           }
+          
+          resolve({ url, originalUrl });
+        } catch (err) {
+          console.error('Failed to parse Cloudinary response:', err);
+          reject(new Error('Failed to parse upload response'));
         }
-        
-        resolve({ url, originalUrl });
       } else {
-        console.error('Cloudinary upload error:', xhr.responseText);
-        reject(new Error('Upload failed: ' + xhr.responseText));
+        console.error('Cloudinary upload error:', xhr.status, xhr.responseText);
+        let errorMsg = xhr.responseText;
+        try {
+          const parsed = JSON.parse(xhr.responseText);
+          if (parsed.error && parsed.error.message) {
+            errorMsg = parsed.error.message;
+          }
+        } catch (e) {}
+        reject(new Error(`Upload failed (${xhr.status}): ${errorMsg}`));
       }
     };
 
     xhr.onerror = () => {
-      console.error('Cloudinary network error');
-      reject(new Error('Upload failed due to network error'));
+      console.error('Cloudinary network error. Status:', xhr.status, 'Response:', xhr.responseText);
+      reject(new Error('Upload failed due to network error or CORS issue. Please check your connection or adblocker.'));
     };
     
     xhr.send(formData);

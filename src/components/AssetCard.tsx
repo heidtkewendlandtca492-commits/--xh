@@ -46,8 +46,8 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
         ...asset,
         candidates: [...asset.candidates, ...newCandidates]
       });
-    } catch (e) {
-      alert('上传失败');
+    } catch (e: any) {
+      alert(`上传失败: ${e.message || '未知错误'}`);
     } finally {
       setIsUploading(false);
       setUploadProgress(0);
@@ -87,8 +87,8 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
         referenceImages: [...currentRefImages, ...newImages],
         referenceImage: undefined // Clear legacy field
       });
-    } catch (e) {
-      alert('上传失败');
+    } catch (e: any) {
+      alert(`上传失败: ${e.message || '未知错误'}`);
     } finally {
       setIsUploading(false);
       setUploadProgress(0);
@@ -114,8 +114,8 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
           name: file.name
         }
       });
-    } catch (e) {
-      alert('上传失败');
+    } catch (e: any) {
+      alert(`上传失败: ${e.message || '未知错误'}`);
     } finally {
       setIsUploading(false);
       setUploadProgress(0);
@@ -147,8 +147,8 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
         ...asset,
         actorCandidates: [...(asset.actorCandidates || []), ...newCandidates]
       });
-    } catch (e) {
-      alert('上传失败');
+    } catch (e: any) {
+      alert(`上传失败: ${e.message || '未知错误'}`);
     } finally {
       setIsUploading(false);
       setUploadProgress(0);

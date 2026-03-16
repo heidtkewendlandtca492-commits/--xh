@@ -1,8 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
+import { Project } from '../types';
 
-export function SettingsModal({ onClose }: { onClose: () => void }) {
+export function SettingsModal({ 
+  project, 
+  onUpdate, 
+  onClose 
+}: { 
+  project: Project, 
+  onUpdate: (p: Project) => void, 
+  onClose: () => void 
+}) {
   const [apiKey, setApiKey] = useState('');
+  const [clearPassword, setClearPassword] = useState(project.clearPassword || 'xwz666');
 
   useEffect(() => {
     const savedKey = localStorage.getItem('GEMINI_API_KEY') || '';
@@ -11,6 +21,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
 
   const handleSave = () => {
     localStorage.setItem('GEMINI_API_KEY', apiKey.trim());
+    onUpdate({ ...project, clearPassword: clearPassword.trim() });
     onClose();
   };
 
@@ -37,6 +48,22 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           />
           <p className="text-xs text-neutral-500 mt-2">
             您的 API Key 仅保存在本地浏览器中，用于文本分析功能。
+          </p>
+        </div>
+
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-neutral-700 mb-2">
+            重新开始项目密码
+          </label>
+          <input
+            type="text"
+            value={clearPassword}
+            onChange={(e) => setClearPassword(e.target.value)}
+            placeholder="设置重新开始项目的密码"
+            className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+          />
+          <p className="text-xs text-neutral-500 mt-2">
+            用于保护“重新开始项目”操作，防止误删数据。默认密码：xwz666。
           </p>
         </div>
 

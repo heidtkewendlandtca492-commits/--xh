@@ -61,7 +61,8 @@ export default function App() {
         id: uuidv4(),
         scriptText: 'Batch Upload',
         assets: allAssets,
-        announcement: announcement
+        announcement: announcement,
+        clearPassword: 'xwz666'
       };
       setProject(newProject);
       await saveProject(newProject);
@@ -84,7 +85,8 @@ export default function App() {
   };
 
   const handleClear = async () => {
-    if (clearPassword !== 'xwz666') {
+    const expectedPassword = project?.clearPassword || 'xwz666';
+    if (clearPassword !== expectedPassword) {
       setPasswordError('密码错误，请重试');
       return;
     }
