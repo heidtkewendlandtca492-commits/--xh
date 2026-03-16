@@ -15,9 +15,7 @@ export function Dropzone({ onDropFiles, children, className }: DropzoneProps) {
     e.preventDefault();
     e.stopPropagation();
     dragCounter.current += 1;
-    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
-      setIsDragging(true);
-    }
+    setIsDragging(true);
   };
 
   const handleDragLeave = (e: DragEvent) => {

@@ -14,6 +14,14 @@ export interface CommunicationMessage {
   isStrikethrough: boolean;
 }
 
+export interface StateFinalizedAsset {
+  id: string;
+  url: string;
+  originalUrl?: string;
+  name: string;
+  stateLabel: string;
+}
+
 export interface Asset {
   id: string;
   type: AssetType;
@@ -28,6 +36,7 @@ export interface Asset {
   audioReference?: Candidate;
   actorCandidates?: Candidate[];
   communications?: CommunicationMessage[];
+  stateFinalizedAssets?: StateFinalizedAsset[];
 }
 
 export interface Project {

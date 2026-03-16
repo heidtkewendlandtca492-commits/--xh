@@ -79,8 +79,9 @@ export default function App() {
     // Save to Firestore immediately for real-time sync
     try {
       await saveProject(updatedProject);
-    } catch (e) {
+    } catch (e: any) {
       console.error("Failed to save project:", e);
+      alert(`保存失败！可能是因为项目数据过大（超过1MB限制）或数据库权限问题。\n\n错误信息: ${e.message}`);
     }
   };
 

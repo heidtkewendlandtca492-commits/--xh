@@ -1,11 +1,13 @@
 import { useState, useRef, FC } from 'react';
-import { Asset, Candidate, CommunicationMessage } from '../types';
-import { Upload, Download, Trash2, X, Image as ImageIcon, Music, Loader2, Send } from 'lucide-react';
+import { Asset, Candidate, CommunicationMessage, StateFinalizedAsset } from '../types';
+import { Upload, Download, Trash2, X, Image as ImageIcon, Music, Loader2, Send, Plus } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { Dropzone } from './Dropzone';
 import { EditableField } from './EditableField';
 import { uploadFile } from '../lib/storage';
 import { ConfirmModal } from './ConfirmModal';
+import { ImageLoader } from './ImageLoader';
+import { ImagePreviewModal } from './ImagePreviewModal';
 
 interface AssetCardProps {
   asset: Asset;
@@ -18,10 +20,12 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
   const refInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
   const actorInputRef = useRef<HTMLInputElement>(null);
+  const stateFinalizedInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [confirmDialog, setConfirmDialog] = useState<{title: string, message: string, action: () => void} | null>(null);
   const [commInput, setCommInput] = useState('');
+  const [previewImage, setPreviewImage] = useState<{url: string, name: string} | null>(null);
 
   const finalizedCandidate = asset.candidates.find(c => c.id === asset.finalizedId);
 
@@ -204,6 +208,52 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
     }
   };
 
+  const handleStateFinalizedUpload = async (files: FileList | null) => {
+    if (!files) return;
+    setIsUploading(true);
+    setUploadProgress(0);
+    try {
+      const newAssets: StateFinalizedAsset[] = [];
+      const total = files.length;
+      let completed = 0;
+      for (const file of Array.from(files)) {
+        const { url, originalUrl } = await uploadFile(file, `assets/${asset.id}/stateFinalized`, (p) => {
+          setUploadProgress(Math.round(((completed * 100) + p) / total));
+        });
+        newAssets.push({
+          id: uuidv4(),
+          url,
+          originalUrl,
+          name: file.name,
+          stateLabel: '未命名状态'
+        });
+        completed++;
+      }
+      onUpdate({
+        ...asset,
+        stateFinalizedAssets: [...(asset.stateFinalizedAssets || []), ...newAssets]
+      });
+    } catch (e: any) {
+      alert(`上传失败: ${e.message || '未知错误'}`);
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
+      if (stateFinalizedInputRef.current) stateFinalizedInputRef.current.value = '';
+    }
+  };
+
+  const updateStateFinalizedLabel = (id: string, newLabel: string) => {
+    const newAssets = (asset.stateFinalizedAssets || []).map(a => 
+      a.id === id ? { ...a, stateLabel: newLabel } : a
+    );
+    onUpdate({ ...asset, stateFinalizedAssets: newAssets });
+  };
+
+  const deleteStateFinalized = (id: string) => {
+    const newAssets = (asset.stateFinalizedAssets || []).filter(a => a.id !== id);
+    onUpdate({ ...asset, stateFinalizedAssets: newAssets });
+  };
+
   const setFinalized = (id: string) => {
     onUpdate({ ...asset, finalizedId: id });
   };
@@ -373,18 +423,21 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
                 const refImages = asset.referenceImages || (asset.referenceImage ? [asset.referenceImage] : []);
                 return refImages.map(img => (
                   <div key={img.id} className="relative group rounded-lg overflow-hidden border border-neutral-200 aspect-square">
-                    <img src={img.url} alt={img.name} className="object-cover w-full h-full" />
-                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-1">
+                    <ImageLoader src={img.url} alt={img.name} />
+                    <div 
+                      className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-1 z-20 cursor-pointer"
+                      onClick={() => setPreviewImage({url: img.url, name: img.name})}
+                    >
                       <div className="flex gap-1 w-full mt-auto">
                         <button 
-                          onClick={() => downloadFileFromUrl(img.originalUrl || img.url, img.name)}
+                          onClick={(e) => { e.stopPropagation(); downloadFileFromUrl(img.originalUrl || img.url, img.name); }}
                           className="bg-white text-black p-1 rounded flex-1 flex justify-center hover:bg-neutral-200"
                           title="无损下载"
                         >
                           <Download className="w-3 h-3" />
                         </button>
                         <button 
-                          onClick={() => confirmDelete('删除参考图', '确定要删除这张参考图吗？', () => deleteReference(img.id))}
+                          onClick={(e) => { e.stopPropagation(); confirmDelete('删除参考图', '确定要删除这张参考图吗？', () => deleteReference(img.id)); }}
                           className="bg-white text-red-600 p-1 rounded flex-1 flex justify-center hover:bg-red-50"
                           title="删除"
                         >
@@ -405,21 +458,24 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
 
           {/* Finalized Area */}
           <div>
-            <h4 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-3">定稿区 (Finalized)</h4>
+            <h4 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-3">主定稿区 (Main Finalized)</h4>
             <div className="rounded-xl overflow-hidden border border-neutral-200 bg-white aspect-video relative group">
               {finalizedCandidate ? (
                 <>
-                  <img src={finalizedCandidate.url} alt={finalizedCandidate.name} className="object-cover w-full h-full" />
-                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                  <ImageLoader src={finalizedCandidate.url} alt={finalizedCandidate.name} />
+                  <div 
+                    className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 z-20 cursor-pointer"
+                    onClick={() => setPreviewImage({url: finalizedCandidate.url, name: finalizedCandidate.name})}
+                  >
                     <button 
-                      onClick={() => downloadFileFromUrl(finalizedCandidate.originalUrl || finalizedCandidate.url, finalizedCandidate.name)}
+                      onClick={(e) => { e.stopPropagation(); downloadFileFromUrl(finalizedCandidate.originalUrl || finalizedCandidate.url, finalizedCandidate.name); }}
                       className="bg-white text-black p-2 rounded-full hover:scale-105 transition-transform"
                       title="无损下载"
                     >
                       <Download className="w-4 h-4" />
                     </button>
                     <button 
-                      onClick={removeFinalized}
+                      onClick={(e) => { e.stopPropagation(); removeFinalized(); }}
                       className="bg-white text-red-600 p-2 rounded-full hover:scale-105 transition-transform"
                       title="取消定稿"
                     >
@@ -437,6 +493,74 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
         </div>
 
         <div className={asset.type === 'character' ? "grid grid-cols-1 xl:grid-cols-2 gap-6" : ""}>
+          {/* State Finalized Area (Characters only) */}
+          {asset.type === 'character' && (
+            <div className="col-span-full">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">角色状态定稿区 (State Finalized)</h4>
+                <button 
+                  onClick={() => stateFinalizedInputRef.current?.click()}
+                  className="text-xs flex items-center gap-1 text-black font-medium hover:underline"
+                >
+                  <Upload className="w-3 h-3" /> 上传状态定稿
+                </button>
+                <input 
+                  type="file" 
+                  multiple 
+                  accept="image/*" 
+                  className="hidden" 
+                  ref={stateFinalizedInputRef}
+                  onChange={(e) => handleStateFinalizedUpload(e.target.files)}
+                />
+              </div>
+              
+              <Dropzone onDropFiles={handleStateFinalizedUpload} className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-4 p-4 bg-white border border-neutral-200 rounded-xl min-h-[150px] mb-6">
+                {(asset.stateFinalizedAssets || []).map(stateAsset => (
+                  <div key={stateAsset.id} className="flex flex-col gap-2">
+                    <div className="relative group rounded-lg overflow-hidden border border-neutral-200 aspect-square">
+                      <ImageLoader src={stateAsset.url} alt={stateAsset.name} />
+                      <div 
+                        className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-1 z-20 cursor-pointer"
+                        onClick={() => setPreviewImage({url: stateAsset.url, name: stateAsset.name})}
+                      >
+                        <div className="flex gap-1 w-full mt-auto">
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); downloadFileFromUrl(stateAsset.originalUrl || stateAsset.url, stateAsset.name); }}
+                            className="bg-white text-black p-1 rounded flex-1 flex justify-center hover:bg-neutral-200"
+                            title="下载"
+                          >
+                            <Download className="w-3 h-3" />
+                          </button>
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); confirmDelete('删除状态定稿', '确定要删除这个状态定稿吗？', () => deleteStateFinalized(stateAsset.id)); }}
+                            className="bg-white text-red-600 p-1 rounded flex-1 flex justify-center hover:bg-red-50"
+                            title="删除"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    <input
+                      type="text"
+                      value={stateAsset.stateLabel}
+                      onChange={(e) => updateStateFinalizedLabel(stateAsset.id, e.target.value)}
+                      placeholder="状态名称 (如: 战斗状态)"
+                      maxLength={10}
+                      className="w-full text-xs text-center border border-neutral-200 rounded px-2 py-1 focus:outline-none focus:border-black focus:ring-1 focus:ring-black"
+                    />
+                  </div>
+                ))}
+                {(!asset.stateFinalizedAssets || asset.stateFinalizedAssets.length === 0) && (
+                  <div className="col-span-full text-center py-8 text-xs text-neutral-400 border-2 border-dashed border-transparent hover:border-neutral-200 rounded-lg cursor-pointer flex flex-col items-center justify-center gap-2" onClick={() => stateFinalizedInputRef.current?.click()}>
+                    <ImageIcon className="w-6 h-6 opacity-30" />
+                    <span>点击或拖拽上传角色不同状态的定稿图</span>
+                  </div>
+                )}
+              </Dropzone>
+            </div>
+          )}
+
           {/* Actor Candidates Area (Characters only) */}
           {asset.type === 'character' && (
             <div>
@@ -461,18 +585,21 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
               <Dropzone onDropFiles={handleActorUpload} className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2 p-2 bg-white border border-neutral-200 rounded-xl min-h-[100px] mb-6 xl:mb-0">
                 {(asset.actorCandidates || []).map(candidate => (
                   <div key={candidate.id} className="relative group rounded-lg overflow-hidden border border-neutral-200 aspect-square">
-                    <img src={candidate.url} alt={candidate.name} className="object-cover w-full h-full" />
-                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-1">
+                    <ImageLoader src={candidate.url} alt={candidate.name} />
+                    <div 
+                      className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-1 z-20 cursor-pointer"
+                      onClick={() => setPreviewImage({url: candidate.url, name: candidate.name})}
+                    >
                       <div className="flex gap-1 w-full mt-auto">
                         <button 
-                          onClick={() => downloadFileFromUrl(candidate.originalUrl || candidate.url, candidate.name)}
+                          onClick={(e) => { e.stopPropagation(); downloadFileFromUrl(candidate.originalUrl || candidate.url, candidate.name); }}
                           className="bg-white text-black p-1 rounded flex-1 flex justify-center hover:bg-neutral-200"
                           title="下载"
                         >
                           <Download className="w-3 h-3" />
                         </button>
                         <button 
-                          onClick={() => confirmDelete('删除素材', '确定要删除这个素材吗？', () => deleteActorCandidate(candidate.id))}
+                          onClick={(e) => { e.stopPropagation(); confirmDelete('删除素材', '确定要删除这个素材吗？', () => deleteActorCandidate(candidate.id)); }}
                           className="bg-white text-red-600 p-1 rounded flex-1 flex justify-center hover:bg-red-50"
                           title="删除"
                         >
@@ -516,11 +643,14 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
             <Dropzone onDropFiles={handleFileUpload} className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2 p-2 bg-white border border-neutral-200 rounded-xl min-h-[100px]">
               {asset.candidates.map(candidate => (
                 <div key={candidate.id} className={`relative group rounded-lg overflow-hidden border aspect-square ${asset.finalizedId === candidate.id ? 'border-black ring-2 ring-black ring-offset-1' : 'border-neutral-200'}`}>
-                  <img src={candidate.url} alt={candidate.name} className="object-cover w-full h-full" />
-                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-1">
+                  <ImageLoader src={candidate.url} alt={candidate.name} />
+                  <div 
+                    className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-1 z-20 cursor-pointer"
+                    onClick={() => setPreviewImage({url: candidate.url, name: candidate.name})}
+                  >
                     {asset.finalizedId !== candidate.id && (
                       <button 
-                        onClick={() => setFinalized(candidate.id)}
+                        onClick={(e) => { e.stopPropagation(); setFinalized(candidate.id); }}
                         className="bg-white text-black text-[10px] font-medium px-2 py-1 rounded w-full hover:bg-neutral-200"
                       >
                         设为定稿
@@ -528,14 +658,14 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
                     )}
                     <div className="flex gap-1 w-full">
                       <button 
-                        onClick={() => downloadFileFromUrl(candidate.originalUrl || candidate.url, candidate.name)}
+                        onClick={(e) => { e.stopPropagation(); downloadFileFromUrl(candidate.originalUrl || candidate.url, candidate.name); }}
                         className="bg-white text-black p-1 rounded flex-1 flex justify-center hover:bg-neutral-200"
                         title="下载"
                       >
                         <Download className="w-3 h-3" />
                       </button>
                       <button 
-                        onClick={() => confirmDelete('删除素材', '确定要删除这个素材吗？', () => deleteCandidate(candidate.id))}
+                        onClick={(e) => { e.stopPropagation(); confirmDelete('删除素材', '确定要删除这个素材吗？', () => deleteCandidate(candidate.id)); }}
                         className="bg-white text-red-600 p-1 rounded flex-1 flex justify-center hover:bg-red-50"
                         title="删除"
                       >
@@ -605,6 +735,14 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
           message={confirmDialog.message}
           onConfirm={confirmDialog.action}
           onCancel={() => setConfirmDialog(null)}
+        />
+      )}
+
+      {previewImage && (
+        <ImagePreviewModal
+          src={previewImage.url}
+          alt={previewImage.name}
+          onClose={() => setPreviewImage(null)}
         />
       )}
     </div>

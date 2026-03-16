@@ -66,9 +66,18 @@ export function Dashboard({
 
   const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && searchQuery.trim()) {
-      const found = filteredAssets.find(a => a.name.includes(searchQuery.trim()));
+      const found = project.assets.find(a => a.name.includes(searchQuery.trim()));
       if (found) {
-        document.getElementById(`asset-${found.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (activeTab !== found.type) {
+          setActiveTab(found.type);
+        }
+        setTimeout(() => {
+          const el = document.getElementById(`asset-${found.id}`);
+          if (el) {
+            const y = el.getBoundingClientRect().top + window.scrollY - 160;
+            window.scrollTo({ top: y, behavior: 'smooth' });
+          }
+        }, 100);
       } else {
         alert('未找到匹配的资产');
       }
