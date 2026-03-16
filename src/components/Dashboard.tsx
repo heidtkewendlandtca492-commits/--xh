@@ -100,16 +100,16 @@ export function Dashboard({
         <div className="bg-amber-50 border-b border-amber-200 px-6 py-3">
           <div className="max-w-7xl mx-auto flex items-start justify-between gap-4">
             <div className="flex-1">
-              <h3 className="text-sm font-bold text-amber-800 mb-1">项目公告</h3>
+              <h3 className="text-xl font-bold text-amber-800 mb-1">项目公告</h3>
               {isEditingAnnouncement ? (
                 <textarea
                   value={editAnnouncementText}
                   onChange={(e) => setEditAnnouncementText(e.target.value)}
-                  className="w-full p-2 border border-amber-300 rounded focus:ring-2 focus:ring-amber-500 focus:outline-none text-sm bg-white min-h-[60px]"
+                  className="w-full p-2 border border-amber-300 rounded focus:ring-2 focus:ring-amber-500 focus:outline-none text-lg bg-white min-h-[60px]"
                   placeholder="输入项目公告..."
                 />
               ) : (
-                <p className="text-sm text-amber-900 whitespace-pre-wrap">
+                <p className="text-lg text-amber-900 whitespace-pre-wrap">
                   {project.announcement || <span className="text-amber-700/50 italic">暂无公告，点击右侧编辑图标添加</span>}
                 </p>
               )}
@@ -218,6 +218,16 @@ export function Dashboard({
             </div>
           )}
         </div>
+
+        {/* Right Sidebar: Usage Notice */}
+        <aside className="w-64 shrink-0 sticky top-40 max-h-[calc(100vh-12rem)] overflow-y-auto hidden lg:block rounded-xl border border-blue-200 bg-blue-50 p-6 shadow-sm">
+          <h3 className="text-xl font-bold text-blue-800 mb-3 flex items-center gap-2">
+            使用公告
+          </h3>
+          <div className="text-lg text-blue-900 whitespace-pre-wrap leading-relaxed">
+            {project.usageNotice || <span className="text-blue-700/50 italic">暂无使用公告，请在设置中添加。</span>}
+          </div>
+        </aside>
 
         <div className="fixed bottom-8 right-8 flex flex-col items-end gap-4 z-20">
           <div className="relative group">

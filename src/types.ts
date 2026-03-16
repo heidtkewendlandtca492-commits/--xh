@@ -44,5 +44,6 @@ export interface Project {
   scriptText: string;
   assets: Asset[];
   announcement?: string; // New field for announcement board
+  usageNotice?: string; // New field for usage notice
   clearPassword?: string; // Password for clearing the project
 }

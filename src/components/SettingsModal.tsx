@@ -13,6 +13,7 @@ export function SettingsModal({
 }) {
   const [apiKey, setApiKey] = useState('');
   const [clearPassword, setClearPassword] = useState(project.clearPassword || 'xwz666');
+  const [usageNotice, setUsageNotice] = useState(project.usageNotice || '');
 
   useEffect(() => {
     const savedKey = localStorage.getItem('GEMINI_API_KEY') || '';
@@ -21,7 +22,11 @@ export function SettingsModal({
 
   const handleSave = () => {
     localStorage.setItem('GEMINI_API_KEY', apiKey.trim());
-    onUpdate({ ...project, clearPassword: clearPassword.trim() });
+    onUpdate({ 
+      ...project, 
+      clearPassword: clearPassword.trim(),
+      usageNotice: usageNotice.trim()
+    });
     onClose();
   };
 
@@ -64,6 +69,21 @@ export function SettingsModal({
           />
           <p className="text-xs text-neutral-500 mt-2">
             用于保护“重新开始项目”操作，防止误删数据。默认密码：xwz666。
+          </p>
+        </div>
+
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-neutral-700 mb-2">
+            使用公告 (右侧常驻)
+          </label>
+          <textarea
+            value={usageNotice}
+            onChange={(e) => setUsageNotice(e.target.value)}
+            placeholder="输入要在右侧常驻显示的使用公告..."
+            className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black min-h-[100px]"
+          />
+          <p className="text-xs text-neutral-500 mt-2">
+            此公告将固定显示在页面右侧，供所有用户查看。
           </p>
         </div>
 

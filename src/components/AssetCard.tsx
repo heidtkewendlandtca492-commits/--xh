@@ -1,4 +1,4 @@
-import { useState, useRef, FC } from 'react';
+import { useState, useRef, useEffect, FC } from 'react';
 import { Asset, Candidate, CommunicationMessage, StateFinalizedAsset } from '../types';
 import { Upload, Download, Trash2, X, Image as ImageIcon, Music, Loader2, Send, Plus } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
@@ -8,6 +8,8 @@ import { uploadFile } from '../lib/storage';
 import { ConfirmModal } from './ConfirmModal';
 import { ImageLoader } from './ImageLoader';
 import { ImagePreviewModal } from './ImagePreviewModal';
+
+type UploadTask = { id: string; file: File; progress: number; previewUrl: string };
 
 interface AssetCardProps {
   asset: Asset;
@@ -21,13 +23,38 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
   const audioInputRef = useRef<HTMLInputElement>(null);
   const actorInputRef = useRef<HTMLInputElement>(null);
   const stateFinalizedInputRef = useRef<HTMLInputElement>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
+  
+  const latestAsset = useRef(asset);
+  useEffect(() => { latestAsset.current = asset; }, [asset]);
+
+  const [activeUploads, setActiveUploads] = useState<Record<string, UploadTask[]>>({
+    reference: [],
+    stateFinalized: [],
+    actorCandidates: [],
+    candidates: [],
+    audio: []
+  });
+  
   const [confirmDialog, setConfirmDialog] = useState<{title: string, message: string, action: () => void} | null>(null);
   const [commInput, setCommInput] = useState('');
   const [previewImage, setPreviewImage] = useState<{url: string, originalUrl?: string, name: string} | null>(null);
 
   const finalizedCandidate = asset.candidates.find(c => c.id === asset.finalizedId);
+
+  const renderUploadTasks = (tasks: UploadTask[]) => {
+    return tasks.map(task => (
+      <div key={task.id} className="relative group rounded-lg overflow-hidden border border-neutral-200 aspect-square bg-neutral-100">
+        <img src={task.previewUrl} className="object-cover w-full h-full opacity-40" />
+        <div className="absolute inset-0 flex flex-col items-center justify-center p-4">
+          <Loader2 className="w-6 h-6 animate-spin text-black mb-3 drop-shadow-md" />
+          <div className="w-full bg-white/80 rounded-full h-1.5 overflow-hidden shadow-sm">
+            <div className="bg-black h-full transition-all duration-300" style={{ width: `${task.progress}%` }} />
+          </div>
+          <span className="text-[10px] font-medium mt-1 bg-white/90 px-1.5 rounded shadow-sm">{task.progress}%</span>
+        </div>
+      </div>
+    ));
+  };
 
   const COMM_COLORS = [
     'text-blue-600',
@@ -75,169 +102,148 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
   };
 
   const handleFileUpload = async (files: FileList | null) => {
-    if (!files) return;
-    setIsUploading(true);
-    setUploadProgress(0);
+    if (!files || files.length === 0) return;
+    const fileArray = Array.from(files);
+    const tasks = fileArray.map(f => ({ id: uuidv4(), file: f, progress: 0, previewUrl: URL.createObjectURL(f) }));
+    setActiveUploads(prev => ({ ...prev, candidates: [...prev.candidates, ...tasks] }));
+
     try {
-      const newCandidates: Candidate[] = [];
-      const total = files.length;
-      let completed = 0;
-      for (const file of Array.from(files)) {
-        const { url, originalUrl } = await uploadFile(file, `assets/${asset.id}/candidates`, (p) => {
-          setUploadProgress(Math.round(((completed * 100) + p) / total));
+      const uploadPromises = tasks.map(async (task) => {
+        const { url, originalUrl } = await uploadFile(task.file, `assets/${asset.id}/candidates`, (p) => {
+          setActiveUploads(prev => ({
+            ...prev,
+            candidates: prev.candidates.map(t => t.id === task.id ? { ...t, progress: p } : t)
+          }));
         });
-        newCandidates.push({
-          id: uuidv4(),
-          url,
-          originalUrl,
-          name: file.name
-        });
-        completed++;
-      }
+        return { id: uuidv4(), url, originalUrl, name: task.file.name };
+      });
+      const newCandidates = await Promise.all(uploadPromises);
       onUpdate({
-        ...asset,
-        candidates: [...asset.candidates, ...newCandidates]
+        ...latestAsset.current,
+        candidates: [...latestAsset.current.candidates, ...newCandidates]
       });
     } catch (e: any) {
       alert(`上传失败: ${e.message || '未知错误'}`);
     } finally {
-      setIsUploading(false);
-      setUploadProgress(0);
+      setActiveUploads(prev => ({ ...prev, candidates: prev.candidates.filter(t => !tasks.find(x => x.id === t.id)) }));
+      tasks.forEach(t => URL.revokeObjectURL(t.previewUrl));
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
   const handleRefUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    setIsUploading(true);
-    setUploadProgress(0);
+    const fileArray = Array.from(files);
+    const tasks = fileArray.map(f => ({ id: uuidv4(), file: f, progress: 0, previewUrl: URL.createObjectURL(f) }));
+    setActiveUploads(prev => ({ ...prev, reference: [...prev.reference, ...tasks] }));
+
     try {
-      const newImages: Candidate[] = [];
-      const total = files.length;
-      let completed = 0;
-      for (const file of Array.from(files)) {
-        const { url, originalUrl } = await uploadFile(file, `assets/${asset.id}/reference`, (p) => {
-          setUploadProgress(Math.round(((completed * 100) + p) / total));
+      const uploadPromises = tasks.map(async (task) => {
+        const { url, originalUrl } = await uploadFile(task.file, `assets/${asset.id}/reference`, (p) => {
+          setActiveUploads(prev => ({
+            ...prev,
+            reference: prev.reference.map(t => t.id === task.id ? { ...t, progress: p } : t)
+          }));
         });
-        newImages.push({
-          id: uuidv4(),
-          url,
-          originalUrl,
-          name: file.name
-        });
-        completed++;
-      }
-      
-      // Combine with existing reference images, and also handle the legacy referenceImage if it exists
-      let currentRefImages = asset.referenceImages || [];
-      if (asset.referenceImage && currentRefImages.length === 0) {
-        currentRefImages = [asset.referenceImage];
-      }
-      
+        return { id: uuidv4(), url, originalUrl, name: task.file.name };
+      });
+      const newImages = await Promise.all(uploadPromises);
+      const currentRefImages = latestAsset.current.referenceImages || (latestAsset.current.referenceImage ? [latestAsset.current.referenceImage] : []);
       onUpdate({
-        ...asset,
+        ...latestAsset.current,
         referenceImages: [...currentRefImages, ...newImages],
-        referenceImage: undefined // Clear legacy field
+        referenceImage: undefined
       });
     } catch (e: any) {
       alert(`上传失败: ${e.message || '未知错误'}`);
     } finally {
-      setIsUploading(false);
-      setUploadProgress(0);
+      setActiveUploads(prev => ({ ...prev, reference: prev.reference.filter(t => !tasks.find(x => x.id === t.id)) }));
+      tasks.forEach(t => URL.revokeObjectURL(t.previewUrl));
       if (refInputRef.current) refInputRef.current.value = '';
     }
   };
 
   const handleAudioUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    setIsUploading(true);
-    setUploadProgress(0);
+    const file = files[0];
+    const task = { id: uuidv4(), file, progress: 0, previewUrl: '' };
+    setActiveUploads(prev => ({ ...prev, audio: [task] }));
+
     try {
-      const file = files[0];
       const { url, originalUrl } = await uploadFile(file, `assets/${asset.id}/audio`, (p) => {
-        setUploadProgress(p);
+        setActiveUploads(prev => ({
+          ...prev,
+          audio: [{ ...task, progress: p }]
+        }));
       });
       onUpdate({
-        ...asset,
-        audioReference: {
-          id: uuidv4(),
-          url,
-          originalUrl,
-          name: file.name
-        }
+        ...latestAsset.current,
+        audioReference: { id: uuidv4(), url, originalUrl, name: file.name }
       });
     } catch (e: any) {
       alert(`上传失败: ${e.message || '未知错误'}`);
     } finally {
-      setIsUploading(false);
-      setUploadProgress(0);
+      setActiveUploads(prev => ({ ...prev, audio: [] }));
       if (audioInputRef.current) audioInputRef.current.value = '';
     }
   };
 
   const handleActorUpload = async (files: FileList | null) => {
-    if (!files) return;
-    setIsUploading(true);
-    setUploadProgress(0);
+    if (!files || files.length === 0) return;
+    const fileArray = Array.from(files);
+    const tasks = fileArray.map(f => ({ id: uuidv4(), file: f, progress: 0, previewUrl: URL.createObjectURL(f) }));
+    setActiveUploads(prev => ({ ...prev, actorCandidates: [...prev.actorCandidates, ...tasks] }));
+
     try {
-      const newCandidates: Candidate[] = [];
-      const total = files.length;
-      let completed = 0;
-      for (const file of Array.from(files)) {
-        const { url, originalUrl } = await uploadFile(file, `assets/${asset.id}/actorCandidates`, (p) => {
-          setUploadProgress(Math.round(((completed * 100) + p) / total));
+      const uploadPromises = tasks.map(async (task) => {
+        const { url, originalUrl } = await uploadFile(task.file, `assets/${asset.id}/actorCandidates`, (p) => {
+          setActiveUploads(prev => ({
+            ...prev,
+            actorCandidates: prev.actorCandidates.map(t => t.id === task.id ? { ...t, progress: p } : t)
+          }));
         });
-        newCandidates.push({
-          id: uuidv4(),
-          url,
-          originalUrl,
-          name: file.name
-        });
-        completed++;
-      }
+        return { id: uuidv4(), url, originalUrl, name: task.file.name };
+      });
+      const newCandidates = await Promise.all(uploadPromises);
       onUpdate({
-        ...asset,
-        actorCandidates: [...(asset.actorCandidates || []), ...newCandidates]
+        ...latestAsset.current,
+        actorCandidates: [...(latestAsset.current.actorCandidates || []), ...newCandidates]
       });
     } catch (e: any) {
       alert(`上传失败: ${e.message || '未知错误'}`);
     } finally {
-      setIsUploading(false);
-      setUploadProgress(0);
+      setActiveUploads(prev => ({ ...prev, actorCandidates: prev.actorCandidates.filter(t => !tasks.find(x => x.id === t.id)) }));
+      tasks.forEach(t => URL.revokeObjectURL(t.previewUrl));
       if (actorInputRef.current) actorInputRef.current.value = '';
     }
   };
 
   const handleStateFinalizedUpload = async (files: FileList | null) => {
-    if (!files) return;
-    setIsUploading(true);
-    setUploadProgress(0);
+    if (!files || files.length === 0) return;
+    const fileArray = Array.from(files);
+    const tasks = fileArray.map(f => ({ id: uuidv4(), file: f, progress: 0, previewUrl: URL.createObjectURL(f) }));
+    setActiveUploads(prev => ({ ...prev, stateFinalized: [...prev.stateFinalized, ...tasks] }));
+
     try {
-      const newAssets: StateFinalizedAsset[] = [];
-      const total = files.length;
-      let completed = 0;
-      for (const file of Array.from(files)) {
-        const { url, originalUrl } = await uploadFile(file, `assets/${asset.id}/stateFinalized`, (p) => {
-          setUploadProgress(Math.round(((completed * 100) + p) / total));
+      const uploadPromises = tasks.map(async (task) => {
+        const { url, originalUrl } = await uploadFile(task.file, `assets/${asset.id}/stateFinalized`, (p) => {
+          setActiveUploads(prev => ({
+            ...prev,
+            stateFinalized: prev.stateFinalized.map(t => t.id === task.id ? { ...t, progress: p } : t)
+          }));
         });
-        newAssets.push({
-          id: uuidv4(),
-          url,
-          originalUrl,
-          name: file.name,
-          stateLabel: '未命名状态'
-        });
-        completed++;
-      }
+        return { id: uuidv4(), url, originalUrl, name: task.file.name, stateLabel: '未命名状态' };
+      });
+      const newAssets = await Promise.all(uploadPromises);
       onUpdate({
-        ...asset,
-        stateFinalizedAssets: [...(asset.stateFinalizedAssets || []), ...newAssets]
+        ...latestAsset.current,
+        stateFinalizedAssets: [...(latestAsset.current.stateFinalizedAssets || []), ...newAssets]
       });
     } catch (e: any) {
       alert(`上传失败: ${e.message || '未知错误'}`);
     } finally {
-      setIsUploading(false);
-      setUploadProgress(0);
+      setActiveUploads(prev => ({ ...prev, stateFinalized: prev.stateFinalized.filter(t => !tasks.find(x => x.id === t.id)) }));
+      tasks.forEach(t => URL.revokeObjectURL(t.previewUrl));
       if (stateFinalizedInputRef.current) stateFinalizedInputRef.current.value = '';
     }
   };
@@ -288,8 +294,28 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
   };
 
   const downloadFileFromUrl = async (url: string, name: string) => {
+    // If it's a Cloudinary URL, we can use fl_attachment to force download instantly without fetching into memory
+    if (url.includes('cloudinary.com') && url.includes('/upload/')) {
+      const parts = url.split('/upload/');
+      if (parts.length === 2) {
+        // Remove extension for the attachment name
+        const safeName = encodeURIComponent(name.replace(/\.[^/.]+$/, "")); 
+        const downloadUrl = `${parts[0]}/upload/fl_attachment:${safeName}/${parts[1]}`;
+        
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = name;
+        a.target = '_blank';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        return;
+      }
+    }
+
     try {
       const response = await fetch(url);
+      if (!response.ok) throw new Error('Network response was not ok');
       const blob = await response.blob();
       const blobUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -300,27 +326,14 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
       document.body.removeChild(a);
       URL.revokeObjectURL(blobUrl);
     } catch (e) {
-      alert('下载失败');
+      console.error('Download failed:', e);
+      alert('下载失败，可能是跨域限制或网络问题。正在尝试在新标签页打开...');
+      window.open(url, '_blank');
     }
   };
 
   return (
     <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm overflow-hidden flex flex-col mb-6 relative">
-      {isUploading && (
-        <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-30 flex items-center justify-center">
-          <div className="flex flex-col items-center gap-3 w-64">
-            <Loader2 className="w-8 h-8 animate-spin text-black" />
-            <span className="text-sm font-medium">上传中... {uploadProgress}%</span>
-            <div className="w-full bg-neutral-200 rounded-full h-2 overflow-hidden">
-              <div 
-                className="bg-black h-full transition-all duration-300 ease-out" 
-                style={{ width: `${uploadProgress}%` }}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-      
       <div className="flex flex-col lg:flex-row w-full">
         {/* Left: Text Info */}
         <div className="w-full lg:w-[300px] xl:w-[350px] shrink-0 p-6 border-b lg:border-b-0 lg:border-r border-neutral-200 flex flex-col gap-6">
@@ -361,7 +374,19 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
               />
             </div>
             <Dropzone onDropFiles={handleAudioUpload} className="rounded-xl border border-neutral-200 bg-white p-4 relative group">
-              {asset.audioReference ? (
+              {activeUploads.audio.length > 0 ? (
+                <div className="flex items-center gap-4 opacity-60">
+                  <div className="w-10 h-10 bg-neutral-100 rounded-full flex items-center justify-center shrink-0">
+                    <Loader2 className="w-5 h-5 text-neutral-500 animate-spin" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{activeUploads.audio[0].file.name}</p>
+                    <div className="w-full bg-neutral-200 rounded-full h-1.5 mt-3 overflow-hidden">
+                      <div className="bg-black h-full transition-all duration-300" style={{ width: `${activeUploads.audio[0].progress}%` }} />
+                    </div>
+                  </div>
+                </div>
+              ) : asset.audioReference ? (
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 bg-neutral-100 rounded-full flex items-center justify-center shrink-0">
                     <Music className="w-5 h-5 text-neutral-500" />
@@ -419,6 +444,7 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
             </div>
             
             <Dropzone onDropFiles={handleRefUpload} className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-white border border-neutral-200 rounded-xl min-h-[100px]">
+              {renderUploadTasks(activeUploads.reference)}
               {(() => {
                 const refImages = asset.referenceImages || (asset.referenceImage ? [asset.referenceImage] : []);
                 return refImages.map(img => (
@@ -515,6 +541,7 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
               </div>
               
               <Dropzone onDropFiles={handleStateFinalizedUpload} className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4 p-4 bg-white border border-neutral-200 rounded-xl min-h-[150px] mb-6">
+                {renderUploadTasks(activeUploads.stateFinalized)}
                 {(asset.stateFinalizedAssets || []).map(stateAsset => (
                   <div key={stateAsset.id} className="flex flex-col gap-2">
                     <div className="relative group rounded-lg overflow-hidden border border-neutral-200 aspect-square">
@@ -583,6 +610,7 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
               </div>
               
               <Dropzone onDropFiles={handleActorUpload} className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4 p-4 bg-white border border-neutral-200 rounded-xl min-h-[100px]">
+                {renderUploadTasks(activeUploads.actorCandidates)}
                 {(asset.actorCandidates || []).map(candidate => (
                   <div key={candidate.id} className="relative group rounded-lg overflow-hidden border border-neutral-200 aspect-square">
                     <ImageLoader src={candidate.url} alt={candidate.name} />
@@ -641,6 +669,7 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
             </div>
             
             <Dropzone onDropFiles={handleFileUpload} className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4 p-4 bg-white border border-neutral-200 rounded-xl min-h-[100px]">
+              {renderUploadTasks(activeUploads.candidates)}
               {asset.candidates.map(candidate => (
                 <div key={candidate.id} className={`relative group rounded-lg overflow-hidden border aspect-square ${asset.finalizedId === candidate.id ? 'border-black ring-2 ring-black ring-offset-1' : 'border-neutral-200'}`}>
                   <ImageLoader src={candidate.url} alt={candidate.name} />
