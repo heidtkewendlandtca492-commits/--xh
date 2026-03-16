@@ -31,12 +31,13 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
       const total = files.length;
       let completed = 0;
       for (const file of Array.from(files)) {
-        const url = await uploadFile(file, `assets/${asset.id}/candidates`, (p) => {
+        const { url, originalUrl } = await uploadFile(file, `assets/${asset.id}/candidates`, (p) => {
           setUploadProgress(Math.round(((completed * 100) + p) / total));
         });
         newCandidates.push({
           id: uuidv4(),
           url,
+          originalUrl,
           name: file.name
         });
         completed++;
@@ -59,17 +60,32 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
     setIsUploading(true);
     setUploadProgress(0);
     try {
-      const file = files[0];
-      const url = await uploadFile(file, `assets/${asset.id}/reference`, (p) => {
-        setUploadProgress(p);
-      });
-      onUpdate({
-        ...asset,
-        referenceImage: {
+      const newImages: Candidate[] = [];
+      const total = files.length;
+      let completed = 0;
+      for (const file of Array.from(files)) {
+        const { url, originalUrl } = await uploadFile(file, `assets/${asset.id}/reference`, (p) => {
+          setUploadProgress(Math.round(((completed * 100) + p) / total));
+        });
+        newImages.push({
           id: uuidv4(),
           url,
+          originalUrl,
           name: file.name
-        }
+        });
+        completed++;
+      }
+      
+      // Combine with existing reference images, and also handle the legacy referenceImage if it exists
+      let currentRefImages = asset.referenceImages || [];
+      if (asset.referenceImage && currentRefImages.length === 0) {
+        currentRefImages = [asset.referenceImage];
+      }
+      
+      onUpdate({
+        ...asset,
+        referenceImages: [...currentRefImages, ...newImages],
+        referenceImage: undefined // Clear legacy field
       });
     } catch (e) {
       alert('上传失败');
@@ -86,7 +102,7 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
     setUploadProgress(0);
     try {
       const file = files[0];
-      const url = await uploadFile(file, `assets/${asset.id}/audio`, (p) => {
+      const { url, originalUrl } = await uploadFile(file, `assets/${asset.id}/audio`, (p) => {
         setUploadProgress(p);
       });
       onUpdate({
@@ -94,6 +110,7 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
         audioReference: {
           id: uuidv4(),
           url,
+          originalUrl,
           name: file.name
         }
       });
@@ -115,12 +132,13 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
       const total = files.length;
       let completed = 0;
       for (const file of Array.from(files)) {
-        const url = await uploadFile(file, `assets/${asset.id}/actorCandidates`, (p) => {
+        const { url, originalUrl } = await uploadFile(file, `assets/${asset.id}/actorCandidates`, (p) => {
           setUploadProgress(Math.round(((completed * 100) + p) / total));
         });
         newCandidates.push({
           id: uuidv4(),
           url,
+          originalUrl,
           name: file.name
         });
         completed++;
@@ -157,8 +175,14 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
     onUpdate({ ...asset, actorCandidates: newCandidates });
   };
 
-  const deleteReference = () => {
-    onUpdate({ ...asset, referenceImage: undefined });
+  const deleteReference = (id: string) => {
+    const currentRefImages = asset.referenceImages || (asset.referenceImage ? [asset.referenceImage] : []);
+    const newRefImages = currentRefImages.filter(img => img.id !== id);
+    onUpdate({ 
+      ...asset, 
+      referenceImages: newRefImages,
+      referenceImage: undefined // Clear legacy field
+    });
   };
 
   const deleteAudio = () => {
@@ -282,41 +306,48 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
                 onClick={() => refInputRef.current?.click()}
                 className="text-xs flex items-center gap-1 text-black font-medium hover:underline"
               >
-                <Upload className="w-3 h-3" /> {asset.referenceImage ? '替换' : '上传'}
+                <Upload className="w-3 h-3" /> 上传
               </button>
               <input 
                 type="file" 
+                multiple
                 accept="image/*" 
                 className="hidden" 
                 ref={refInputRef}
                 onChange={(e) => handleRefUpload(e.target.files)}
               />
             </div>
-            <Dropzone onDropFiles={handleRefUpload} className="rounded-xl overflow-hidden border border-neutral-200 bg-white aspect-video relative group">
-              {asset.referenceImage ? (
-                <>
-                  <img src={asset.referenceImage.url} alt={asset.referenceImage.name} className="object-cover w-full h-full" />
-                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
-                    <button 
-                      onClick={() => downloadFileFromUrl(asset.referenceImage!.url, asset.referenceImage!.name)}
-                      className="bg-white text-black p-2 rounded-full hover:scale-105 transition-transform"
-                      title="无损下载"
-                    >
-                      <Download className="w-4 h-4" />
-                    </button>
-                    <button 
-                      onClick={deleteReference}
-                      className="bg-white text-red-600 p-2 rounded-full hover:scale-105 transition-transform"
-                      title="删除参考图"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+            
+            <Dropzone onDropFiles={handleRefUpload} className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-2 bg-white border border-neutral-200 rounded-xl min-h-[100px]">
+              {(() => {
+                const refImages = asset.referenceImages || (asset.referenceImage ? [asset.referenceImage] : []);
+                return refImages.map(img => (
+                  <div key={img.id} className="relative group rounded-lg overflow-hidden border border-neutral-200 aspect-square">
+                    <img src={img.url} alt={img.name} className="object-cover w-full h-full" />
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-1">
+                      <div className="flex gap-1 w-full mt-auto">
+                        <button 
+                          onClick={() => downloadFileFromUrl(img.originalUrl || img.url, img.name)}
+                          className="bg-white text-black p-1 rounded flex-1 flex justify-center hover:bg-neutral-200"
+                          title="无损下载"
+                        >
+                          <Download className="w-3 h-3" />
+                        </button>
+                        <button 
+                          onClick={() => deleteReference(img.id)}
+                          className="bg-white text-red-600 p-1 rounded flex-1 flex justify-center hover:bg-red-50"
+                          title="删除"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                </>
-              ) : (
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-neutral-400 text-sm border-2 border-dashed border-transparent hover:border-neutral-300 transition-colors cursor-pointer" onClick={() => refInputRef.current?.click()}>
-                  <ImageIcon className="w-8 h-8 mb-2 opacity-50" />
-                  <span>点击或拖拽上传参考图</span>
+                ));
+              })()}
+              {(!asset.referenceImages || asset.referenceImages.length === 0) && !asset.referenceImage && (
+                <div className="col-span-full text-center py-6 text-xs text-neutral-400 border-2 border-dashed border-transparent hover:border-neutral-200 rounded-lg cursor-pointer" onClick={() => refInputRef.current?.click()}>
+                  点击或拖拽上传参考图
                 </div>
               )}
             </Dropzone>
@@ -331,7 +362,7 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
                   <img src={finalizedCandidate.url} alt={finalizedCandidate.name} className="object-cover w-full h-full" />
                   <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
                     <button 
-                      onClick={() => downloadFileFromUrl(finalizedCandidate.url, finalizedCandidate.name)}
+                      onClick={() => downloadFileFromUrl(finalizedCandidate.originalUrl || finalizedCandidate.url, finalizedCandidate.name)}
                       className="bg-white text-black p-2 rounded-full hover:scale-105 transition-transform"
                       title="无损下载"
                     >
@@ -384,7 +415,7 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
                     <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-1">
                       <div className="flex gap-1 w-full mt-auto">
                         <button 
-                          onClick={() => downloadFileFromUrl(candidate.url, candidate.name)}
+                          onClick={() => downloadFileFromUrl(candidate.originalUrl || candidate.url, candidate.name)}
                           className="bg-white text-black p-1 rounded flex-1 flex justify-center hover:bg-neutral-200"
                           title="下载"
                         >
@@ -413,7 +444,9 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
           {/* Candidates Area */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h4 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">定妆备选区 (Makeup Candidates)</h4>
+              <h4 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">
+                {asset.type === 'character' ? '定妆备选区 (Makeup Candidates)' : '素材备选区 (Material Candidates)'}
+              </h4>
               <button 
                 onClick={() => fileInputRef.current?.click()}
                 className="text-xs flex items-center gap-1 text-black font-medium hover:underline"
@@ -445,7 +478,7 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
                     )}
                     <div className="flex gap-1 w-full">
                       <button 
-                        onClick={() => downloadFileFromUrl(candidate.url, candidate.name)}
+                        onClick={() => downloadFileFromUrl(candidate.originalUrl || candidate.url, candidate.name)}
                         className="bg-white text-black p-1 rounded flex-1 flex justify-center hover:bg-neutral-200"
                         title="下载"
                       >

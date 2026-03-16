@@ -1,4 +1,4 @@
-export async function uploadFile(file: File, path: string, onProgress?: (progress: number) => void): Promise<string> {
+export async function uploadFile(file: File, path: string, onProgress?: (progress: number) => void): Promise<{ url: string, originalUrl?: string }> {
   const formData = new FormData();
   formData.append('file', file);
   formData.append('upload_preset', 'ml_default'); // Using the default unsigned preset name
@@ -18,7 +18,19 @@ export async function uploadFile(file: File, path: string, onProgress?: (progres
     xhr.onload = () => {
       if (xhr.status === 200) {
         const response = JSON.parse(xhr.responseText);
-        resolve(response.secure_url);
+        const originalUrl = response.secure_url;
+        let url = originalUrl;
+        
+        // If it's an image, create a compressed URL for preview
+        if (response.resource_type === 'image') {
+          // Insert transformation parameters: q_auto:low (quality), f_auto (format), w_800 (width limit)
+          const parts = originalUrl.split('/upload/');
+          if (parts.length === 2) {
+            url = `${parts[0]}/upload/q_auto:low,f_auto,w_800/${parts[1]}`;
+          }
+        }
+        
+        resolve({ url, originalUrl });
       } else {
         console.error('Cloudinary upload error:', xhr.responseText);
         reject(new Error('Upload failed: ' + xhr.responseText));

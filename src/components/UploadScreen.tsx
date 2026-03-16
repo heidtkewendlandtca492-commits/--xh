@@ -3,8 +3,9 @@ import { Upload, FileText } from 'lucide-react';
 import { AssetType } from '../types';
 import { Dropzone } from './Dropzone';
 
-export function UploadScreen({ onUpload }: { onUpload: (uploads: { data: File | string, type: AssetType }[]) => void }) {
+export function UploadScreen({ onUpload }: { onUpload: (uploads: { data: File | string, type: AssetType }[], announcement: string) => void }) {
   const [files, setFiles] = useState<{ [key in AssetType]?: File }>({});
+  const [announcement, setAnnouncement] = useState('');
 
   const handleFileChange = (type: AssetType, e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -33,7 +34,7 @@ export function UploadScreen({ onUpload }: { onUpload: (uploads: { data: File | 
       type: type as AssetType
     }));
     if (uploads.length > 0) {
-      onUpload(uploads);
+      onUpload(uploads, announcement);
     }
   };
 
@@ -83,6 +84,16 @@ export function UploadScreen({ onUpload }: { onUpload: (uploads: { data: File | 
           <UploadBox type="character" title="上传人物表格" />
           <UploadBox type="scene" title="上传场景表格" />
           <UploadBox type="prop" title="上传道具表格" />
+        </div>
+
+        <div className="mb-8">
+          <label className="block text-sm font-medium text-neutral-700 mb-2">项目公告栏 (选填)</label>
+          <textarea
+            value={announcement}
+            onChange={(e) => setAnnouncement(e.target.value)}
+            placeholder="在这里输入项目公告，例如：拍摄进度、注意事项等..."
+            className="w-full p-4 border border-neutral-300 rounded-xl focus:ring-2 focus:ring-black focus:outline-none resize-y min-h-[100px] text-sm"
+          />
         </div>
 
         <div className="flex justify-center">

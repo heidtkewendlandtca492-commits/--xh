@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Project, AssetType, Asset } from '../types';
 import { AssetCard } from './AssetCard';
-import { Plus, Trash2, Upload as UploadIcon, Search, Settings, Sparkles } from 'lucide-react';
+import { Plus, Trash2, Upload as UploadIcon, Search, Settings, Sparkles, Edit2, Check, X } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { AddAssetModal } from './AddAssetModal';
 import { parseFileOrText } from '../lib/parser';
@@ -22,6 +22,8 @@ export function Dashboard({
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAnalyzeModalOpen, setIsAnalyzeModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isEditingAnnouncement, setIsEditingAnnouncement] = useState(false);
+  const [editAnnouncementText, setEditAnnouncementText] = useState(project.announcement || '');
   const batchUploadRef = useRef<HTMLInputElement>(null);
 
   const filteredAssets = project.assets.filter(a => a.type === activeTab);
@@ -78,8 +80,49 @@ export function Dashboard({
     alert('分析完成，已提取新资产！');
   };
 
+  const saveAnnouncement = () => {
+    onUpdate({ ...project, announcement: editAnnouncementText });
+    setIsEditingAnnouncement(false);
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
+      {(project.announcement || isEditingAnnouncement) && (
+        <div className="bg-amber-50 border-b border-amber-200 px-6 py-3">
+          <div className="max-w-7xl mx-auto flex items-start justify-between gap-4">
+            <div className="flex-1">
+              <h3 className="text-sm font-bold text-amber-800 mb-1">项目公告</h3>
+              {isEditingAnnouncement ? (
+                <textarea
+                  value={editAnnouncementText}
+                  onChange={(e) => setEditAnnouncementText(e.target.value)}
+                  className="w-full p-2 border border-amber-300 rounded focus:ring-2 focus:ring-amber-500 focus:outline-none text-sm bg-white min-h-[60px]"
+                  placeholder="输入项目公告..."
+                />
+              ) : (
+                <p className="text-sm text-amber-900 whitespace-pre-wrap">{project.announcement}</p>
+              )}
+            </div>
+            <div className="flex-shrink-0">
+              {isEditingAnnouncement ? (
+                <div className="flex gap-2">
+                  <button onClick={saveAnnouncement} className="p-1.5 bg-amber-600 text-white rounded hover:bg-amber-700" title="保存">
+                    <Check className="w-4 h-4" />
+                  </button>
+                  <button onClick={() => { setIsEditingAnnouncement(false); setEditAnnouncementText(project.announcement || ''); }} className="p-1.5 bg-amber-200 text-amber-800 rounded hover:bg-amber-300" title="取消">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <button onClick={() => setIsEditingAnnouncement(true)} className="p-1.5 text-amber-700 hover:bg-amber-200 rounded transition-colors" title="编辑公告">
+                  <Edit2 className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <header className="bg-white border-b border-neutral-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-6">

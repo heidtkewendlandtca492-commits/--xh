@@ -15,6 +15,8 @@ export default function App() {
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [clearPassword, setClearPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
 
   useEffect(() => {
     const preventDefault = (e: DragEvent) => {
@@ -47,7 +49,7 @@ export default function App() {
     };
   }, []);
 
-  const handleUpload = async (uploads: { data: File | string, type: AssetType }[]) => {
+  const handleUpload = async (uploads: { data: File | string, type: AssetType }[], announcement: string) => {
     setLoading(true);
     try {
       let allAssets: Asset[] = [];
@@ -59,6 +61,7 @@ export default function App() {
         id: uuidv4(),
         scriptText: 'Batch Upload',
         assets: allAssets,
+        announcement: announcement
       };
       setProject(newProject);
       await saveProject(newProject);
@@ -81,9 +84,17 @@ export default function App() {
   };
 
   const handleClear = async () => {
+    if (clearPassword !== 'xwz666') {
+      setPasswordError('密码错误，请重试');
+      return;
+    }
+    
     try {
       await clearProject();
       setProject(null);
+      setClearPassword('');
+      setPasswordError('');
+      alert('项目已重置。注意：云端图片/音频缓存无法在前端直接删除，如需彻底释放云端空间，请在 Cloudinary 后台手动清理。');
     } catch (e) {
       console.error("Failed to clear project:", e);
     } finally {
@@ -99,7 +110,11 @@ export default function App() {
         <Dashboard 
           project={project} 
           onUpdate={handleUpdateProject} 
-          onClear={() => setShowConfirm(true)} 
+          onClear={() => {
+            setShowConfirm(true);
+            setClearPassword('');
+            setPasswordError('');
+          }} 
         />
       ) : (
         <UploadScreen onUpload={handleUpload} />
@@ -109,7 +124,23 @@ export default function App() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
           <div className="bg-white p-6 rounded-2xl max-w-sm w-full shadow-xl">
             <h3 className="text-xl font-bold mb-2">重新开始项目</h3>
-            <p className="text-neutral-500 mb-6 text-sm">确定要清除当前项目并重新开始吗？所有未保存的进度将丢失，此操作不可逆。</p>
+            <p className="text-neutral-500 mb-4 text-sm">确定要清除当前项目并重新开始吗？所有未保存的进度将丢失，此操作不可逆。</p>
+            
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-neutral-700 mb-1">请输入密码确认</label>
+              <input 
+                type="password" 
+                value={clearPassword}
+                onChange={(e) => {
+                  setClearPassword(e.target.value);
+                  setPasswordError('');
+                }}
+                placeholder="请输入密码"
+                className="w-full p-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black focus:outline-none"
+              />
+              {passwordError && <p className="text-red-500 text-xs mt-1">{passwordError}</p>}
+            </div>
+
             <div className="flex justify-end gap-3">
               <button 
                 onClick={() => setShowConfirm(false)} 
