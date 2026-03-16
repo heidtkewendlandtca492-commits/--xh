@@ -1,10 +1,10 @@
-import { useState, useRef, useEffect, FC } from 'react';
+import { useState, useRef, FC } from 'react';
 import { Asset, Candidate } from '../types';
-import { Upload, Download, Trash2, X, Image as ImageIcon, Music } from 'lucide-react';
+import { Upload, Download, Trash2, X, Image as ImageIcon, Music, Loader2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
-import { downloadFile } from '../lib/utils';
 import { Dropzone } from './Dropzone';
 import { EditableField } from './EditableField';
+import { uploadFile } from '../lib/storage';
 
 interface AssetCardProps {
   asset: Asset;
@@ -16,49 +16,126 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const refInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
+  const actorInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const finalizedCandidate = asset.candidates.find(c => c.id === asset.finalizedId);
 
-  const handleFileUpload = (files: FileList | null) => {
+  const handleFileUpload = async (files: FileList | null) => {
     if (!files) return;
-    const newCandidates: Candidate[] = Array.from(files).map((file: File) => ({
-      id: uuidv4(),
-      file,
-      name: file.name
-    }));
-    onUpdate({
-      ...asset,
-      candidates: [...asset.candidates, ...newCandidates]
-    });
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    setIsUploading(true);
+    setUploadProgress(0);
+    try {
+      const newCandidates: Candidate[] = [];
+      const total = files.length;
+      let completed = 0;
+      for (const file of Array.from(files)) {
+        const url = await uploadFile(file, `assets/${asset.id}/candidates`, (p) => {
+          setUploadProgress(Math.round(((completed * 100) + p) / total));
+        });
+        newCandidates.push({
+          id: uuidv4(),
+          url,
+          name: file.name
+        });
+        completed++;
+      }
+      onUpdate({
+        ...asset,
+        candidates: [...asset.candidates, ...newCandidates]
+      });
+    } catch (e) {
+      alert('上传失败');
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
-  const handleRefUpload = (files: FileList | null) => {
+  const handleRefUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    const file = files[0];
-    onUpdate({
-      ...asset,
-      referenceImage: {
-        id: uuidv4(),
-        file,
-        name: file.name
-      }
-    });
-    if (refInputRef.current) refInputRef.current.value = '';
+    setIsUploading(true);
+    setUploadProgress(0);
+    try {
+      const file = files[0];
+      const url = await uploadFile(file, `assets/${asset.id}/reference`, (p) => {
+        setUploadProgress(p);
+      });
+      onUpdate({
+        ...asset,
+        referenceImage: {
+          id: uuidv4(),
+          url,
+          name: file.name
+        }
+      });
+    } catch (e) {
+      alert('上传失败');
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
+      if (refInputRef.current) refInputRef.current.value = '';
+    }
   };
 
-  const handleAudioUpload = (files: FileList | null) => {
+  const handleAudioUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    const file = files[0];
-    onUpdate({
-      ...asset,
-      audioReference: {
-        id: uuidv4(),
-        file,
-        name: file.name
+    setIsUploading(true);
+    setUploadProgress(0);
+    try {
+      const file = files[0];
+      const url = await uploadFile(file, `assets/${asset.id}/audio`, (p) => {
+        setUploadProgress(p);
+      });
+      onUpdate({
+        ...asset,
+        audioReference: {
+          id: uuidv4(),
+          url,
+          name: file.name
+        }
+      });
+    } catch (e) {
+      alert('上传失败');
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
+      if (audioInputRef.current) audioInputRef.current.value = '';
+    }
+  };
+
+  const handleActorUpload = async (files: FileList | null) => {
+    if (!files) return;
+    setIsUploading(true);
+    setUploadProgress(0);
+    try {
+      const newCandidates: Candidate[] = [];
+      const total = files.length;
+      let completed = 0;
+      for (const file of Array.from(files)) {
+        const url = await uploadFile(file, `assets/${asset.id}/actorCandidates`, (p) => {
+          setUploadProgress(Math.round(((completed * 100) + p) / total));
+        });
+        newCandidates.push({
+          id: uuidv4(),
+          url,
+          name: file.name
+        });
+        completed++;
       }
-    });
-    if (audioInputRef.current) audioInputRef.current.value = '';
+      onUpdate({
+        ...asset,
+        actorCandidates: [...(asset.actorCandidates || []), ...newCandidates]
+      });
+    } catch (e) {
+      alert('上传失败');
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
+      if (actorInputRef.current) actorInputRef.current.value = '';
+    }
   };
 
   const setFinalized = (id: string) => {
@@ -75,6 +152,11 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
     onUpdate({ ...asset, candidates: newCandidates, finalizedId: newFinalizedId });
   };
 
+  const deleteActorCandidate = (id: string) => {
+    const newCandidates = (asset.actorCandidates || []).filter(c => c.id !== id);
+    onUpdate({ ...asset, actorCandidates: newCandidates });
+  };
+
   const deleteReference = () => {
     onUpdate({ ...asset, referenceImage: undefined });
   };
@@ -83,8 +165,39 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
     onUpdate({ ...asset, audioReference: undefined });
   };
 
+  const downloadFileFromUrl = async (url: string, name: string) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+    } catch (e) {
+      alert('下载失败');
+    }
+  };
+
   return (
-    <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm overflow-hidden flex flex-col lg:flex-row mb-6">
+    <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm overflow-hidden flex flex-col lg:flex-row mb-6 relative">
+      {isUploading && (
+        <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-30 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-3 w-64">
+            <Loader2 className="w-8 h-8 animate-spin text-black" />
+            <span className="text-sm font-medium">上传中... {uploadProgress}%</span>
+            <div className="w-full bg-neutral-200 rounded-full h-2 overflow-hidden">
+              <div 
+                className="bg-black h-full transition-all duration-300 ease-out" 
+                style={{ width: `${uploadProgress}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
       {/* Left: Text Info */}
       <div className="w-full lg:w-[300px] xl:w-[350px] shrink-0 p-6 border-b lg:border-b-0 lg:border-r border-neutral-200 flex flex-col gap-6">
         <div className="flex justify-between items-start">
@@ -131,11 +244,11 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{asset.audioReference.name}</p>
-                    <audio controls src={URL.createObjectURL(asset.audioReference.file)} className="w-full h-8 mt-2" />
+                    <audio controls src={asset.audioReference.url} className="w-full h-8 mt-2" />
                   </div>
                   <div className="flex flex-col gap-2 shrink-0">
                     <button 
-                      onClick={() => downloadFile(asset.audioReference!.file)}
+                      onClick={() => downloadFileFromUrl(asset.audioReference!.url, asset.audioReference!.name)}
                       className="text-neutral-500 hover:text-black p-1"
                       title="下载音频"
                     >
@@ -182,10 +295,10 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
             <Dropzone onDropFiles={handleRefUpload} className="rounded-xl overflow-hidden border border-neutral-200 bg-white aspect-video relative group">
               {asset.referenceImage ? (
                 <>
-                  <CandidateImage file={asset.referenceImage.file} />
+                  <img src={asset.referenceImage.url} alt={asset.referenceImage.name} className="object-cover w-full h-full" />
                   <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
                     <button 
-                      onClick={() => downloadFile(asset.referenceImage!.file)}
+                      onClick={() => downloadFileFromUrl(asset.referenceImage!.url, asset.referenceImage!.name)}
                       className="bg-white text-black p-2 rounded-full hover:scale-105 transition-transform"
                       title="无损下载"
                     >
@@ -215,10 +328,10 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
             <div className="rounded-xl overflow-hidden border border-neutral-200 bg-white aspect-video relative group">
               {finalizedCandidate ? (
                 <>
-                  <CandidateImage file={finalizedCandidate.file} />
+                  <img src={finalizedCandidate.url} alt={finalizedCandidate.name} className="object-cover w-full h-full" />
                   <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
                     <button 
-                      onClick={() => downloadFile(finalizedCandidate.file)}
+                      onClick={() => downloadFileFromUrl(finalizedCandidate.url, finalizedCandidate.name)}
                       className="bg-white text-black p-2 rounded-full hover:scale-105 transition-transform"
                       title="无损下载"
                     >
@@ -242,80 +355,122 @@ export const AssetCard: FC<AssetCardProps> = ({ asset, onUpdate, onDelete }) => 
           </div>
         </div>
 
-        {/* Candidates Area */}
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h4 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">备选区 (Candidates)</h4>
-            <button 
-              onClick={() => fileInputRef.current?.click()}
-              className="text-xs flex items-center gap-1 text-black font-medium hover:underline"
-            >
-              <Upload className="w-3 h-3" /> 上传素材
-            </button>
-            <input 
-              type="file" 
-              multiple 
-              accept="image/*" 
-              className="hidden" 
-              ref={fileInputRef}
-              onChange={(e) => handleFileUpload(e.target.files)}
-            />
-          </div>
-          
-          <Dropzone onDropFiles={handleFileUpload} className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2 p-2 bg-white border border-neutral-200 rounded-xl min-h-[100px]">
-            {asset.candidates.map(candidate => (
-              <div key={candidate.id} className={`relative group rounded-lg overflow-hidden border aspect-square ${asset.finalizedId === candidate.id ? 'border-black ring-2 ring-black ring-offset-1' : 'border-neutral-200'}`}>
-                <CandidateImage file={candidate.file} />
-                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-1">
-                  {asset.finalizedId !== candidate.id && (
-                    <button 
-                      onClick={() => setFinalized(candidate.id)}
-                      className="bg-white text-black text-[10px] font-medium px-2 py-1 rounded w-full hover:bg-neutral-200"
-                    >
-                      设为定稿
-                    </button>
-                  )}
-                  <div className="flex gap-1 w-full">
-                    <button 
-                      onClick={() => downloadFile(candidate.file)}
-                      className="bg-white text-black p-1 rounded flex-1 flex justify-center hover:bg-neutral-200"
-                      title="下载"
-                    >
-                      <Download className="w-3 h-3" />
-                    </button>
-                    <button 
-                      onClick={() => deleteCandidate(candidate.id)}
-                      className="bg-white text-red-600 p-1 rounded flex-1 flex justify-center hover:bg-red-50"
-                      title="删除"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
+        <div className={asset.type === 'character' ? "grid grid-cols-1 xl:grid-cols-2 gap-6" : ""}>
+          {/* Actor Candidates Area (Characters only) */}
+          {asset.type === 'character' && (
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">素材备选区 (Material Candidates)</h4>
+                <button 
+                  onClick={() => actorInputRef.current?.click()}
+                  className="text-xs flex items-center gap-1 text-black font-medium hover:underline"
+                >
+                  <Upload className="w-3 h-3" /> 上传素材
+                </button>
+                <input 
+                  type="file" 
+                  multiple 
+                  accept="image/*" 
+                  className="hidden" 
+                  ref={actorInputRef}
+                  onChange={(e) => handleActorUpload(e.target.files)}
+                />
+              </div>
+              
+              <Dropzone onDropFiles={handleActorUpload} className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2 p-2 bg-white border border-neutral-200 rounded-xl min-h-[100px] mb-6 xl:mb-0">
+                {(asset.actorCandidates || []).map(candidate => (
+                  <div key={candidate.id} className="relative group rounded-lg overflow-hidden border border-neutral-200 aspect-square">
+                    <img src={candidate.url} alt={candidate.name} className="object-cover w-full h-full" />
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-1">
+                      <div className="flex gap-1 w-full mt-auto">
+                        <button 
+                          onClick={() => downloadFileFromUrl(candidate.url, candidate.name)}
+                          className="bg-white text-black p-1 rounded flex-1 flex justify-center hover:bg-neutral-200"
+                          title="下载"
+                        >
+                          <Download className="w-3 h-3" />
+                        </button>
+                        <button 
+                          onClick={() => deleteActorCandidate(candidate.id)}
+                          className="bg-white text-red-600 p-1 rounded flex-1 flex justify-center hover:bg-red-50"
+                          title="删除"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {(!asset.actorCandidates || asset.actorCandidates.length === 0) && (
+                  <div className="col-span-full text-center py-6 text-xs text-neutral-400 border-2 border-dashed border-transparent hover:border-neutral-200 rounded-lg cursor-pointer" onClick={() => actorInputRef.current?.click()}>
+                    点击或拖拽上传素材
+                  </div>
+                )}
+              </Dropzone>
+            </div>
+          )}
+
+          {/* Candidates Area */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">定妆备选区 (Makeup Candidates)</h4>
+              <button 
+                onClick={() => fileInputRef.current?.click()}
+                className="text-xs flex items-center gap-1 text-black font-medium hover:underline"
+              >
+                <Upload className="w-3 h-3" /> 上传素材
+              </button>
+              <input 
+                type="file" 
+                multiple 
+                accept="image/*" 
+                className="hidden" 
+                ref={fileInputRef}
+                onChange={(e) => handleFileUpload(e.target.files)}
+              />
+            </div>
+            
+            <Dropzone onDropFiles={handleFileUpload} className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2 p-2 bg-white border border-neutral-200 rounded-xl min-h-[100px]">
+              {asset.candidates.map(candidate => (
+                <div key={candidate.id} className={`relative group rounded-lg overflow-hidden border aspect-square ${asset.finalizedId === candidate.id ? 'border-black ring-2 ring-black ring-offset-1' : 'border-neutral-200'}`}>
+                  <img src={candidate.url} alt={candidate.name} className="object-cover w-full h-full" />
+                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-1">
+                    {asset.finalizedId !== candidate.id && (
+                      <button 
+                        onClick={() => setFinalized(candidate.id)}
+                        className="bg-white text-black text-[10px] font-medium px-2 py-1 rounded w-full hover:bg-neutral-200"
+                      >
+                        设为定稿
+                      </button>
+                    )}
+                    <div className="flex gap-1 w-full">
+                      <button 
+                        onClick={() => downloadFileFromUrl(candidate.url, candidate.name)}
+                        className="bg-white text-black p-1 rounded flex-1 flex justify-center hover:bg-neutral-200"
+                        title="下载"
+                      >
+                        <Download className="w-3 h-3" />
+                      </button>
+                      <button 
+                        onClick={() => deleteCandidate(candidate.id)}
+                        className="bg-white text-red-600 p-1 rounded flex-1 flex justify-center hover:bg-red-50"
+                        title="删除"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-            {asset.candidates.length === 0 && (
-              <div className="col-span-full text-center py-6 text-xs text-neutral-400 border-2 border-dashed border-transparent hover:border-neutral-200 rounded-lg cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                点击或拖拽上传备选素材
-              </div>
-            )}
-          </Dropzone>
+              ))}
+              {asset.candidates.length === 0 && (
+                <div className="col-span-full text-center py-6 text-xs text-neutral-400 border-2 border-dashed border-transparent hover:border-neutral-200 rounded-lg cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                  点击或拖拽上传备选素材
+                </div>
+              )}
+            </Dropzone>
+          </div>
         </div>
       </div>
     </div>
   );
-}
-
-function CandidateImage({ file }: { file: File }) {
-  const [url, setUrl] = useState<string>('');
-  
-  useEffect(() => {
-    const objectUrl = URL.createObjectURL(file);
-    setUrl(objectUrl);
-    return () => URL.revokeObjectURL(objectUrl);
-  }, [file]);
-
-  if (!url) return <div className="w-full h-full bg-neutral-100 animate-pulse" />;
-
-  return <img src={url} alt={file.name} className="object-cover w-full h-full" />;
 }

@@ -1,14 +1,26 @@
 import React, { useState, useRef } from 'react';
 import { Project, AssetType, Asset } from '../types';
 import { AssetCard } from './AssetCard';
-import { Plus, Trash2, Upload as UploadIcon, Search } from 'lucide-react';
+import { Plus, Trash2, Upload as UploadIcon, Search, Settings, Sparkles } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { AddAssetModal } from './AddAssetModal';
 import { parseFileOrText } from '../lib/parser';
+import { SettingsModal } from './SettingsModal';
+import { AnalyzeModal } from './AnalyzeModal';
 
-export function Dashboard({ project, onUpdate, onClear }: { project: Project, onUpdate: (p: Project) => void, onClear: () => void }) {
+export function Dashboard({ 
+  project, 
+  onUpdate, 
+  onClear
+}: { 
+  project: Project, 
+  onUpdate: (p: Project) => void, 
+  onClear: () => void
+}) {
   const [activeTab, setActiveTab] = useState<AssetType>('character');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isAnalyzeModalOpen, setIsAnalyzeModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const batchUploadRef = useRef<HTMLInputElement>(null);
 
@@ -61,6 +73,11 @@ export function Dashboard({ project, onUpdate, onClear }: { project: Project, on
     }
   };
 
+  const handleAddAnalyzedAssets = (newAssets: Asset[]) => {
+    onUpdate({ ...project, assets: [...newAssets, ...project.assets] });
+    alert('分析完成，已提取新资产！');
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
       <header className="bg-white border-b border-neutral-200 sticky top-0 z-10">
@@ -79,12 +96,17 @@ export function Dashboard({ project, onUpdate, onClear }: { project: Project, on
               />
             </div>
           </div>
-          <button onClick={onClear} className="text-sm text-red-600 hover:text-red-700 flex items-center gap-1">
-            <Trash2 className="w-4 h-4" /> 重新开始项目
-          </button>
+          <div className="flex items-center gap-4">
+            <button onClick={() => setIsSettingsOpen(true)} className="text-sm text-neutral-600 hover:text-black flex items-center gap-1">
+              <Settings className="w-4 h-4" /> 设置
+            </button>
+            <button onClick={onClear} className="text-sm text-red-600 hover:text-red-700 flex items-center gap-1">
+              <Trash2 className="w-4 h-4" /> 重新开始项目
+            </button>
+          </div>
         </div>
         <div className="max-w-7xl mx-auto px-6 flex gap-8">
-          {(['character', 'scene', 'prop'] as AssetType[]).map(tab => (
+          {(['character', 'scene', 'prop'] as const).map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -114,6 +136,18 @@ export function Dashboard({ project, onUpdate, onClear }: { project: Project, on
         )}
 
         <div className="fixed bottom-8 right-8 flex flex-col gap-4 z-20">
+          <div className="relative group">
+            <button
+              onClick={() => setIsAnalyzeModalOpen(true)}
+              className="w-14 h-14 bg-white text-black border border-neutral-200 rounded-full shadow-lg flex items-center justify-center hover:bg-neutral-50 transition-transform hover:scale-105"
+            >
+              <Sparkles className="w-6 h-6" />
+            </button>
+            <span className="absolute right-full mr-4 top-1/2 -translate-y-1/2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+              AI 分析提取
+            </span>
+          </div>
+
           <div className="relative group">
             <input type="file" accept=".xlsx,.xls,.csv,.tsv,.txt" className="hidden" ref={batchUploadRef} onChange={handleBatchUpload} />
             <button
@@ -146,6 +180,19 @@ export function Dashboard({ project, onUpdate, onClear }: { project: Project, on
           type={activeTab} 
           onClose={() => setIsAddModalOpen(false)} 
           onAdd={addAsset} 
+        />
+      )}
+
+      {isSettingsOpen && (
+        <SettingsModal onClose={() => setIsSettingsOpen(false)} />
+      )}
+
+      {isAnalyzeModalOpen && (
+        <AnalyzeModal 
+          initialText={project.scriptText}
+          onClose={() => setIsAnalyzeModalOpen(false)} 
+          onAddAssets={handleAddAnalyzedAssets} 
+          onUpdateText={(text) => onUpdate({ ...project, scriptText: text })}
         />
       )}
     </div>

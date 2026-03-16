@@ -2,7 +2,7 @@ export type AssetType = 'character' | 'scene' | 'prop';
 
 export interface Candidate {
   id: string;
-  file: File;
+  url: string;
   name: string;
 }
 
@@ -17,6 +17,7 @@ export interface Asset {
   finalizedId?: string;
   referenceImage?: Candidate;
   audioReference?: Candidate;
+  actorCandidates?: Candidate[];
 }
 
 export interface Project {

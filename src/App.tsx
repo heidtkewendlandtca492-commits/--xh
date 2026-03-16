@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { loadProject, saveProject, clearProject } from './lib/db';
+import { loadProject, saveProject, clearProject, subscribeToProject } from './lib/db';
 import { Project, AssetType, Asset } from './types';
 import { parseFileOrText } from './lib/parser';
 import { UploadScreen } from './components/UploadScreen';
@@ -17,10 +17,34 @@ export default function App() {
   const [showConfirm, setShowConfirm] = useState(false);
 
   useEffect(() => {
-    loadProject().then(p => {
-      if (p) setProject(p);
+    const preventDefault = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    window.addEventListener('dragover', preventDefault);
+    window.addEventListener('drop', preventDefault);
+    return () => {
+      window.removeEventListener('dragover', preventDefault);
+      window.removeEventListener('drop', preventDefault);
+    };
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToProject((p) => {
+      setProject(p);
       setLoading(false);
     });
+
+    const preventDefault = (e: Event) => {
+      e.preventDefault();
+    };
+    window.addEventListener('dragover', preventDefault);
+    window.addEventListener('drop', preventDefault);
+    return () => {
+      unsubscribe();
+      window.removeEventListener('dragover', preventDefault);
+      window.removeEventListener('drop', preventDefault);
+    };
   }, []);
 
   const handleUpload = async (uploads: { data: File | string, type: AssetType }[]) => {
@@ -36,8 +60,8 @@ export default function App() {
         scriptText: 'Batch Upload',
         assets: allAssets,
       };
-      await saveProject(newProject);
       setProject(newProject);
+      await saveProject(newProject);
     } catch (e) {
       console.error(e);
       alert('解析失败，请检查文件格式');
@@ -47,14 +71,24 @@ export default function App() {
   };
 
   const handleUpdateProject = async (updatedProject: Project) => {
-    await saveProject(updatedProject);
     setProject(updatedProject);
+    // Save to Firestore immediately for real-time sync
+    try {
+      await saveProject(updatedProject);
+    } catch (e) {
+      console.error("Failed to save project:", e);
+    }
   };
 
   const handleClear = async () => {
-    await clearProject();
-    setProject(null);
-    setShowConfirm(false);
+    try {
+      await clearProject();
+      setProject(null);
+    } catch (e) {
+      console.error("Failed to clear project:", e);
+    } finally {
+      setShowConfirm(false);
+    }
   };
 
   if (loading) return <div className="flex h-screen items-center justify-center">加载中...</div>;
@@ -62,7 +96,11 @@ export default function App() {
   return (
     <div className="min-h-screen bg-neutral-50 text-neutral-900 font-sans">
       {project ? (
-        <Dashboard project={project} onUpdate={handleUpdateProject} onClear={() => setShowConfirm(true)} />
+        <Dashboard 
+          project={project} 
+          onUpdate={handleUpdateProject} 
+          onClear={() => setShowConfirm(true)} 
+        />
       ) : (
         <UploadScreen onUpload={handleUpload} />
       )}
